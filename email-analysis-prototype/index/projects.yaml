@@ -1,0 +1,220 @@
+﻿corpus:
+  source_root: emails/王慧
+  source_format: 每封邮件一个目录，正文为 *_邮件提取.docx，附件在 attachments 子目录
+  initial_scan_at: 2026-06-29
+  scanned_docx_count: 645
+  sent_count: 82
+  inbox_count: 563
+  note: 本索引基于用户提供的真实导出邮件首次扫描生成，不使用虚拟邮件。
+
+projects:
+  - project_id: P001
+    name: 付款审批与供应商付款专题
+    aliases:
+      - 付款审批
+      - payments this week
+      - supplier payments
+      - urgent payment
+      - Swift copy
+      - pending signature
+    customer: StreamView / Thomson / Express Luck 相关付款方
+    owner:
+      name: 王慧
+      email: hwang2@expressluck.com
+    members:
+      - 姚文华
+      - 陈朝昕
+      - Khaled Debs
+      - Rima Monla
+      - Susanne Wischnewski
+      - Accounting
+    current_stage: 付款审批与签字跟进
+    status: 进行中
+    risk_level: 中
+    progress_estimate: 60%
+    confidence: 中
+    summary_file: projects/P001/summary.md
+    timeline_file: projects/P001/timeline.md
+    threads_file: projects/P001/threads.md
+    email_directory: emails/王慧
+    search_terms:
+      - payments this week
+      - urgent payment
+      - pending signature
+      - ready for signature
+      - Swift copy
+
+  - project_id: P002
+    name: 银行状态与资金调拨专题
+    aliases:
+      - 银行状态
+      - Bank Status
+      - Bank positions
+      - Transfers Streamview
+      - 资金调拨
+    customer: StreamView 欧洲区域公司
+    owner:
+      name: Rima Monla
+      email: rima.monla@streamview.com
+    members:
+      - 王慧
+      - 姚文华
+      - 陈朝昕
+      - Khaled Debs
+      - Madona Baroud
+    current_stage: 多区域银行余额和转账跟进
+    status: 进行中
+    risk_level: 中
+    progress_estimate: 55%
+    confidence: 中
+    summary_file: projects/P002/summary.md
+    timeline_file: projects/P002/timeline.md
+    threads_file: projects/P002/threads.md
+    email_directory: emails/王慧
+    search_terms:
+      - Bank Status
+      - Bank positions
+      - Transfers Streamview
+      - France
+      - Italy
+      - Spain
+      - MEA
+      - Dubai
+
+  - project_id: P003
+    name: 2026预算与财务会议专题
+    aliases:
+      - Budget 2026
+      - 2026预算
+      - Financial team call
+      - budget assumption
+    customer: StreamView / Thomson 财务团队
+    owner:
+      name: 王慧
+      email: hwang2@expressluck.com
+    members:
+      - Cindy Liao
+      - Rima Monla
+      - Khaled Debs
+      - 姚文华
+    current_stage: 预算假设讨论和资料补充
+    status: 进行中
+    risk_level: 低
+    progress_estimate: 45%
+    confidence: 中
+    summary_file: projects/P003/summary.md
+    timeline_file: projects/P003/timeline.md
+    threads_file: projects/P003/threads.md
+    email_directory: emails/王慧
+    search_terms:
+      - Budget 2026
+      - Financial team call
+      - budget assumption
+
+  - project_id: P004
+    name: 股东会审计与法律预警专题
+    aliases:
+      - Shareholder Meeting
+      - Official Warning
+      - Audit
+      - Follow-Up on Audit
+      - 股东会
+      - 审计
+      - 法律预警
+    customer: StreamView GmbH / 外部法律和审计相关方
+    owner:
+      name: Khaled Debs
+      email: kdebs@streamview.com
+    members:
+      - 王慧
+      - Rima Monla
+      - Michael Mittermair
+      - 陈朝昕
+      - 姚文华
+    current_stage: 会议、审计事项和后续行动跟进
+    status: 高关注
+    risk_level: 高
+    progress_estimate: 50%
+    confidence: 中
+    summary_file: projects/P004/summary.md
+    timeline_file: projects/P004/timeline.md
+    threads_file: projects/P004/threads.md
+    email_directory: emails/王慧
+    search_terms:
+      - Shareholder Meeting
+      - Official Warning
+      - Follow-Up on Audit
+      - Minutes and Next Steps
+      - Extraordinary Shareholders
+
+  - project_id: P005
+    name: 摩洛哥订单与SBLC专题
+    aliases:
+      - Morocco order
+      - SBLC
+      - LC draft
+      - 摩洛哥订单
+      - Proposed Payment Plan
+    customer: Morocco order / Thomson / StreamView
+    owner:
+      name: Cindy Liao
+      email: cindy.liao@thomsonelectronic.com
+    members:
+      - 王慧
+      - 姚文华
+      - Tanzy
+      - 林斌
+      - Khaled Debs
+      - Jimmy Wu
+      - Michael Mittermair
+    current_stage: 信用证、付款计划和生产启动协调
+    status: 进行中
+    risk_level: 中
+    progress_estimate: 50%
+    confidence: 中
+    summary_file: projects/P005/summary.md
+    timeline_file: projects/P005/timeline.md
+    threads_file: projects/P005/threads.md
+    email_directory: emails/王慧
+    search_terms:
+      - Morocco
+      - SBLC
+      - LC draft
+      - production start
+      - Proposed Payment Plan
+
+  - project_id: P006
+    name: 索赔与发票处理专题
+    aliases:
+      - Claim letter
+      - Claims Letter
+      - Invoice
+      - Request for Invoices
+      - 索赔
+      - 发票
+      - audit fee
+    customer: StreamView / RSM / Dachser 等相关方
+    owner:
+      name: 陈朝昕
+      email: richardchen@expressluck.com
+    members:
+      - 王慧
+      - 姚文华
+      - Noel Lau
+      - Jeff Emde
+      - Khaled Debs
+    current_stage: 索赔资料和发票支持文件收集
+    status: 进行中
+    risk_level: 中
+    progress_estimate: 58%
+    confidence: 中
+    summary_file: projects/P006/summary.md
+    timeline_file: projects/P006/timeline.md
+    threads_file: projects/P006/threads.md
+    email_directory: emails/王慧
+    search_terms:
+      - Claim letter
+      - Invoice 61403337
+      - Request for Invoices
+      - audit fee
+      - Dachser invoices

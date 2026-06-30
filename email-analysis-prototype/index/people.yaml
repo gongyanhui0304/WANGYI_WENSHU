@@ -1,0 +1,111 @@
+﻿people:
+  - person_id: U001
+    name: 王慧
+    aliases:
+      - Shirley Wang
+      - hwang2
+    email: hwang2@expressluck.com
+    role: 管理层/财务审批相关负责人
+    department: Express Luck
+    projects:
+      - P001
+      - P002
+      - P003
+      - P004
+      - P005
+      - P006
+
+  - person_id: U002
+    name: 姚文华
+    aliases:
+      - Steven Yao
+      - stevenyao
+    email: stevenyao@expressluck.com
+    role: 内部协调人
+    department: Express Luck
+    projects:
+      - P001
+      - P002
+      - P003
+      - P006
+
+  - person_id: U003
+    name: 陈朝昕
+    aliases:
+      - Richard Chen
+      - Chaoxin Chen
+    email: richardchen@expressluck.com
+    role: 财务负责人
+    department: Express Luck Europe Electric Kft.
+    projects:
+      - P001
+      - P002
+      - P004
+      - P006
+
+  - person_id: U004
+    name: Rima Monla
+    email: rima.monla@streamview.com
+    role: StreamView 财务/资金协调人
+    department: StreamView
+    projects:
+      - P002
+      - P003
+      - P004
+
+  - person_id: U005
+    name: Khaled Debs
+    aliases:
+      - K Debs
+    email: kdebs@streamview.com
+    role: StreamView 管理/审批相关负责人
+    department: StreamView
+    projects:
+      - P001
+      - P004
+      - P005
+      - P006
+
+  - person_id: U006
+    name: Susanne Wischnewski
+    email: susanne.wischnewski@thomsonelectronic.com
+    role: 付款清单提交人
+    department: Thomson Electronic
+    projects:
+      - P001
+
+  - person_id: U007
+    name: Cindy Liao
+    email: cindy.liao@thomsonelectronic.com
+    role: 财务/业务协调人
+    department: Thomson Electronic
+    projects:
+      - P003
+      - P005
+
+  - person_id: U008
+    name: Madona Baroud
+    email: madona.baroud@streamview.com
+    role: 银行状态/资金信息参与人
+    department: StreamView
+    projects:
+      - P002
+
+  - person_id: U009
+    name: Tanzy
+    aliases:
+      - 谭志梅
+    email: tanzy@expressluck.com
+    role: 订单/生产协调人
+    department: Express Luck
+    projects:
+      - P005
+
+  - person_id: U010
+    name: Michael Mittermair
+    email: mittermair@bindergroesswang.at
+    role: 外部法律/付款计划沟通方
+    department: Binder Groesswang
+    projects:
+      - P004
+      - P005
