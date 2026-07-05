@@ -1,0 +1,18 @@
+﻿{
+  "users": [
+    {
+      "user_id": "codex_user_a",
+      "display_name": "User A",
+      "token": "replace_with_user_a_token",
+      "allowed_mailboxes": ["mailbox_a"],
+      "permissions": ["read_index", "read_evidence", "request_rebuild"]
+    },
+    {
+      "user_id": "codex_user_b",
+      "display_name": "User B",
+      "token": "replace_with_user_b_token",
+      "allowed_mailboxes": ["mailbox_b"],
+      "permissions": ["read_index", "read_evidence"]
+    }
+  ]
+}

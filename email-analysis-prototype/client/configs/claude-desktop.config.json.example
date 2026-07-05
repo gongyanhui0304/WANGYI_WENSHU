@@ -1,0 +1,16 @@
+﻿{
+  "note": "Fallback only for Claude Desktop setups that require stdio MCP. Prefer remote MCP URL https://mail-analysis.company.example/mcp if your Claude client supports it.",
+  "mcpServers": {
+    "emailProjectAnalysis": {
+      "command": "node",
+      "args": [
+        "/absolute/path/to/email_mcp_stdio.mjs"
+      ],
+      "env": {
+        "MAIL_MCP_BASE_URL": "https://mail-analysis.company.example/mcp",
+        "MAIL_MCP_TOKEN": "<user-specific-token>"
+      }
+    }
+  }
+}
+

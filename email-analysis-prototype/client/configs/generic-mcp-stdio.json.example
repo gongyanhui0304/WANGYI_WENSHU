@@ -1,0 +1,12 @@
+﻿{
+  "note": "Fallback only. Prefer remote MCP at https://mail-analysis.company.example/mcp when the client supports it.",
+  "name": "emailProjectAnalysis",
+  "transport": "stdio",
+  "command": "node",
+  "args": ["/absolute/path/to/email_mcp_stdio.mjs"],
+  "env": {
+    "MAIL_MCP_BASE_URL": "https://mail-analysis.company.example/mcp",
+    "MAIL_MCP_TOKEN": "<user-specific-token>"
+  }
+}
+

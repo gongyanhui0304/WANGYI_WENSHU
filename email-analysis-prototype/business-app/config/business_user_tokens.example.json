@@ -1,0 +1,14 @@
+﻿{
+  "users": [
+    {
+      "user_id": "user_a",
+      "display_name": "User A",
+      "mcp_token": "replace_with_user_a_token"
+    },
+    {
+      "user_id": "user_b",
+      "display_name": "User B",
+      "mcp_token": "replace_with_user_b_token"
+    }
+  ]
+}

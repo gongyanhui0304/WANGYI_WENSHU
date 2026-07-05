@@ -1,0 +1,24 @@
+config/*.local.env
+config/*credentials*
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/user-delivery/
+
+# Server-only prototype: do not commit local mail snapshots or raw evidence.
+emails/
+server-files/
+local-mails/
+projects/
+*.eml
+*.msg
+*_邮件提取.docx
+# MCP runtime secrets.
+mcp-server/config/mail_api.env
+mcp-server/config/permissions.json
+mcp-server/config/*.local.*
+.secrets/
+business-app/config/business_app.env
+business-app/config/business_user_tokens.json
+

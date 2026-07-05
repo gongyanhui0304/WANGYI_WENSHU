@@ -1,0 +1,26 @@
+﻿active_source: server_mcp
+
+server_mcp:`r`n  description: "Server-side mail analysis through MCP only. Raw mail stays on the server."`r`n  entry_points:`r`n    technical_codex: "Codex Skill uses MCP credentials from a developer/admin Codex environment."`r`n    business_access_layer: "Web or IM gateway maps logged-in users to MCP tokens on the server."
+  connection:
+    base_url_env: MAIL_MCP_BASE_URL
+    token_env: MAIL_MCP_TOKEN
+  server_paths:
+    raw_mail_root_env: MAIL_RAW_ROOT
+    existing_index_db_env: MAIL_EXISTING_INDEX_DB
+    processed_mail_root_env: MAIL_PROCESSED_ROOT
+    codex_index_root_env: MAIL_INDEX_ROOT
+    codex_logs_root_env: MAIL_LOG_ROOT
+  rebuild_policy: manual_with_status_check
+  local_mail_source: forbidden
+  mailbox_discovery: "Call list_mailboxes() through MCP; do not hard-code mailbox ids."
+  evidence_access: "Call get_evidence(mailbox_id, evidence_id/thread_id); do not read paths directly."
+
+local_mail_source:
+  status: forbidden
+  forbidden_paths:
+    - emails/
+    - projects/
+    - index/projects.yaml
+    - index/people.yaml
+
+

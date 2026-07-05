@@ -1,0 +1,14 @@
+[Unit]
+Description=Email Analysis Business Web Gateway
+After=network.target email-analysis-api.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/email-analysis/business_app.env
+WorkingDirectory=/opt/email-analysis/email-analysis-prototype
+ExecStart=/usr/bin/python3 /opt/email-analysis/email-analysis-prototype/business-app/server/business_web_app.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

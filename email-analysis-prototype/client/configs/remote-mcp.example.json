@@ -1,0 +1,9 @@
+﻿{
+  "name": "emailProjectAnalysis",
+  "transport": "http",
+  "url": "https://mail-analysis.company.example/mcp",
+  "headers": {
+    "Authorization": "Bearer <user-specific-token>"
+  }
+}
+

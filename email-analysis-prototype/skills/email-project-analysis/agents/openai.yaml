@@ -1,0 +1,3 @@
+﻿display_name: 邮件项目分析
+short_description: 通过 MCP 权限层分析服务器邮件索引、线程和证据。
+default_prompt: 使用服务器邮件数据源分析当前用户有权限访问的邮箱；先查索引，必要时通过证据 ID 查看原始邮件，不读取本地邮件目录。

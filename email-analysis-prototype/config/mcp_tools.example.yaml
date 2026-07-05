@@ -1,0 +1,86 @@
+﻿tools:
+  list_mailboxes:
+    input_schema:
+      type: object
+      properties: {}
+      required: []
+    output_schema:
+      type: object
+      required: [mailboxes]
+
+  get_index_status:
+    input_schema:
+      type: object
+      required: [mailbox_id]
+      properties:
+        mailbox_id:
+          type: string
+    output_schema:
+      type: object
+      required: [mailbox_id, status, is_stale]
+
+  query_summary:
+    input_schema:
+      type: object
+      required: [mailbox_id, query]
+      properties:
+        mailbox_id:
+          type: string
+        query:
+          type: string
+        filters:
+          type: object
+    output_schema:
+      type: object
+      required: [answer_basis, summary]
+
+  search_threads:
+    input_schema:
+      type: object
+      required: [mailbox_id, query]
+      properties:
+        mailbox_id:
+          type: string
+        query:
+          type: string
+        filters:
+          type: object
+    output_schema:
+      type: object
+      required: [answer_basis, threads]
+
+  get_evidence:
+    input_schema:
+      type: object
+      required: [mailbox_id]
+      properties:
+        mailbox_id:
+          type: string
+        evidence_id:
+          type: string
+        thread_id:
+          type: string
+      one_of_required:
+        - evidence_id
+        - thread_id
+    output_schema:
+      type: object
+      required: [answer_basis, mailbox_id, evidence]
+
+  rebuild_index:
+    input_schema:
+      type: object
+      required: [mailbox_id, reason]
+      properties:
+        mailbox_id:
+          type: string
+        reason:
+          enum:
+            - index_missing
+            - index_corrupted
+            - user_explicit_rebuild_request
+            - admin_explicit_rebuild_request
+            - stale_index_confirmed_by_status_check
+    output_schema:
+      type: object
+      required: [job_id, mailbox_id, status]

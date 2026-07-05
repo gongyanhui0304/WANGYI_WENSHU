@@ -1,0 +1,8 @@
+﻿{
+  "name": "emailProjectAnalysis",
+  "transport": "http",
+  "url": "http://<mcp-server-host>:<port>/mcp",
+  "headers": {
+    "Authorization": "Bearer <user-specific-token>"
+  }
+}

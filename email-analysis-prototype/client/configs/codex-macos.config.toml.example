@@ -1,0 +1,18 @@
+﻿# Fallback only for Codex versions that require local stdio MCP.
+# Prefer remote MCP in the Codex UI when available:
+#   URL: https://mail-analysis.company.example/mcp
+#   Authorization: Bearer <user-specific-token>
+
+[projects.'/Users/<username>/Desktop/codex']
+trust_level = "trusted"
+
+[mcp_servers.emailProjectAnalysis]
+command = 'node'
+args = ['/Users/<username>/Desktop/codex/email_mcp_stdio.mjs']
+startup_timeout_sec = 30
+
+[mcp_servers.emailProjectAnalysis.env]
+MAIL_MCP_BASE_URL = "https://mail-analysis.company.example/mcp"
+MAIL_MCP_TOKEN = "<user-specific-token>"
+
+
