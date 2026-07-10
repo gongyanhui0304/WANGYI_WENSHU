@@ -1,14 +1,15 @@
-# AGENTS.md
+﻿# AGENTS.md
 
 This repository is for the server-hosted mail analysis service and the per-user MCP delivery bundle.
 
 ## Scope
 
 - Administrators deploy the full project on the server.
-- End users receive only their personalized runtime files from `dist/user-delivery/<user_id>/user/`.
-- IT/platform administrators use `dist/user-delivery/<user_id>/it/` to register `emailProjectAnalysis` in the target agent platform.
+- The server owns raw mail access, indexing, permissions, tokens, and the remote MCP API.
+- Every user or permission group can receive a dedicated delivery bundle with `user/email_mcp_stdio.mjs` and `user/SKILL.md`.
+- The per-user bridge embeds only that user's token and server MCP URL. Do not share one user's bridge with another user.
+- Users should not manually edit MCP config files. Platform admins or IT distribution should register or place the generated files for them.
 - Preferred runtime access is the server remote MCP endpoint: `POST /mcp`.
-- Local `client/email_mcp_stdio.mjs` is the stdio bridge for agents that cannot connect to remote MCP directly.
 - `business-app/` is only a temporary demo/debug gateway and is not the recommended delivery path.
 - Production indexing is large-mail mode by default. Do not use repeated full-mailbox scans as the production indexing method.
 
@@ -30,34 +31,34 @@ This repository is for the server-hosted mail analysis service and the per-user 
 - `MAIL_LOG_ROOT`: server-side log root.
 - `MAIL_PERMISSIONS_FILE`: token and mailbox permission file.
 
-## User Delivery
+## Delivery Generation
 
-Generate a personalized delivery bundle per user with:
-
-```text
-client/generate_user_delivery.mjs
-```
-
-Default stdio-MCP output:
+Generate a server-managed delivery bundle with:
 
 ```text
-dist/user-delivery/<user_id>/user/email_mcp_stdio.mjs
-dist/user-delivery/<user_id>/user/SKILL.md
-dist/user-delivery/<user_id>/it/IT_INSTALL.md
-dist/user-delivery/<user_id>/it/mcp-config.codex.toml
-dist/user-delivery/<user_id>/it/mcp-config.generic.json
+node client/generate_user_delivery.mjs --user-id <user_id> --mcp-url <mcp_url> --token <token> --mailbox <mailbox_id>
 ```
 
-The bridge may contain that user's MCP URL and token. Do not configure a default mailbox. The agent must call `list_mailboxes` and use only mailboxes returned for the current token.
+Default output:
 
-Copying files into a workspace is not enough. IT/platform administrators must register `emailProjectAnalysis` in the target agent platform. If the user still has to remind the agent to read `email_mcp_stdio.mjs` or `SKILL.md`, MCP has not been loaded in that agent session.
+```text
+dist/platform-delivery/<user_id>/platform-admin/PLATFORM_ADMIN_SETUP.md
+dist/platform-delivery/<user_id>/platform-admin/remote-mcp.per-user.json
+dist/platform-delivery/<user_id>/user/email_mcp_stdio.mjs
+dist/platform-delivery/<user_id>/user/SKILL.md
+dist/platform-delivery/<user_id>/user-test/USER_TEST_PROMPT.md
+```
 
-If the agent platform supports central remote MCP registration, administrators may register `emailProjectAnalysis` centrally and provide only platform-specific user instructions. Business users should not edit MCP config, env files, or repository files.
+Use `platform-admin/` when the agent platform supports remote HTTP MCP registration. Use `user/` when the platform only supports local stdio MCP and IT can distribute/register the per-user bridge for the user.
+
+Business users may receive `user/email_mcp_stdio.mjs` and `user/SKILL.md`, but they should not be asked to author configuration, choose tokens, or know server paths. IT/platform tooling should install or register those files.
+
+The agent must call `list_mailboxes` and use only mailboxes returned for the current token. If the user still has to remind the agent to read a local file, MCP has not been loaded in that platform session.
 
 ## Permission Rules
 
 - A user can only access mailboxes listed for their token by the MCP Server.
-- The Skill may contain a per-user token reference, but it must not contain hard-coded mailbox permissions.
+- The Skill may contain a per-user token reference through the generated bridge, but it must not contain hard-coded mailbox permissions beyond hints/examples.
 - The Skill may suggest a mailbox id based on the prompt or current conversation, but MCP must validate it.
 - If multiple mailboxes are authorized and the user does not specify one, ask the user to choose.
 - Never implement arbitrary `read_file(path)`, `list_dir(path)`, `grep(path)`, shell, SSH, or broad filesystem tools for mail access.
@@ -65,4 +66,4 @@ If the agent platform supports central remote MCP registration, administrators m
 
 ## Normal Agent Use
 
-Do not place this strict server `AGENTS.md` in unrelated user workspaces. For end-user delivery, use `dist/user-delivery/<user_id>/user/`; for platform setup, use `dist/user-delivery/<user_id>/it/`.
+Do not place this strict server `AGENTS.md` in unrelated user workspaces. For end-user delivery, use `dist/platform-delivery/<user_id>/user/`; for platform setup, use `dist/platform-delivery/<user_id>/platform-admin/`.

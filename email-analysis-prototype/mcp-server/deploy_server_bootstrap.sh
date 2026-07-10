@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 set -euo pipefail
 
 # Server-hosted deployment bootstrap.
@@ -15,7 +15,8 @@ mkdir -p "$SERVER_APP_ROOT" "$MAIL_INDEX_ROOT" "$MAIL_LOG_ROOT"
 cp mcp-server/server/mail_http_api.py "$SERVER_APP_ROOT/mail_http_api.py"
 cp mcp-server/server/mail_indexer.py "$SERVER_APP_ROOT/mail_indexer.py"
 cp mcp-server/server/manage_permissions.py "$SERVER_APP_ROOT/manage_permissions.py"
-chmod 755 "$SERVER_APP_ROOT/mail_http_api.py" "$SERVER_APP_ROOT/mail_indexer.py" "$SERVER_APP_ROOT/manage_permissions.py"
+cp mcp-server/server/batch_mail_ops.py "$SERVER_APP_ROOT/batch_mail_ops.py"
+chmod 755 "$SERVER_APP_ROOT/mail_http_api.py" "$SERVER_APP_ROOT/mail_indexer.py" "$SERVER_APP_ROOT/manage_permissions.py" "$SERVER_APP_ROOT/batch_mail_ops.py"
 
 if [ ! -f "$MAIL_PERMISSIONS_FILE" ]; then
   cat > "$MAIL_PERMISSIONS_FILE" <<'JSON'
@@ -40,4 +41,3 @@ sleep 2
 tail -n 20 "$MAIL_LOG_ROOT/mail_http_api.out" || true
 
 echo "Remote MCP URL for users: http://<server-ip>:$MAIL_API_PORT/mcp"
-

@@ -1,4 +1,4 @@
-import importlib.util
+﻿import importlib.util
 import json
 import os
 import sqlite3
@@ -31,6 +31,27 @@ def write_eml(path: Path, subject: str, body: str, date: str = "Fri, 04 Jul 2026
     )
 
 
+
+
+def write_ics(path: Path, summary: str, description: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            [
+                "BEGIN:VCALENDAR",
+                "BEGIN:VEVENT",
+                "DTSTART:20260704T110000Z",
+                "DTSTAMP:20260704T100000Z",
+                "ORGANIZER:mailto:alice@example.com",
+                "ATTENDEE:mailto:bob@example.com",
+                f"SUMMARY:{summary}",
+                f"DESCRIPTION:{description}",
+                "END:VEVENT",
+                "END:VCALENDAR",
+            ]
+        ),
+        encoding="utf-8",
+    )
 def load_api_module(env: dict[str, str]):
     old_env = os.environ.copy()
     os.environ.update(env)
@@ -128,6 +149,31 @@ class ProductionIndexerTest(unittest.TestCase):
         self.assertEqual(status["processed_group_count"], 0)
         self.assertEqual(status["skipped_unchanged_file_count"], 1)
 
+
+    def test_flat_eml_and_ics_files_are_indexed_as_individual_messages(self) -> None:
+        rel_one = "inbox/one.eml"
+        rel_two = "inbox/two.eml"
+        rel_three = "send/meeting.ics"
+        write_eml(self.raw_root / self.mailbox / rel_one, "First flat inbox message", "first inbox body")
+        write_eml(self.raw_root / self.mailbox / rel_two, "Second flat inbox message", "second inbox body")
+        write_ics(self.raw_root / self.mailbox / rel_three, "Calendar flat message", "calendar body")
+
+        result = self.run_indexer("--changed-list", str(self.changed_list(rel_one, rel_two, rel_three)), self.mailbox)
+
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+        status = self.status()
+        self.assertEqual(status["message_count"], 3)
+        self.assertEqual(status["processed_group_count"], 3)
+        indexed = self.state_rows("indexed_files")
+        message_keys = {row["relative_path"]: row["message_key"] for row in indexed}
+        self.assertEqual(message_keys[rel_one], rel_one)
+        self.assertEqual(message_keys[rel_two], rel_two)
+        self.assertEqual(message_keys[rel_three], rel_three)
+
+        subjects = {json.loads(row["record_json"])["subject"] for row in self.state_rows("evidence_records")}
+        self.assertIn("First flat inbox message", subjects)
+        self.assertIn("Second flat inbox message", subjects)
+        self.assertIn("Calendar flat message", subjects)
     def test_deleted_changed_file_removes_record_and_marks_tombstone(self) -> None:
         rel = "2026/07/streamview/message.eml"
         msg = self.raw_root / self.mailbox / rel

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Generate per-user delivery files from the stable bridge and Skill template.
+// Generate platform-managed stdio delivery files for one user or group token.
 // Usage:
-//   node client/generate_user_delivery.mjs --user-id leader --mcp-url https://mail-analysis.company.example/mcp --token xxx
+//   node client/generate_user_delivery.mjs --user-id caigou_test --mcp-url https://mail-analysis.company.example/mcp --token xxx
 
 import fs from "node:fs";
 import path from "node:path";
@@ -35,116 +35,111 @@ const args = readArgs(process.argv);
 const userId = args["user-id"] || args.user || "";
 const mcpUrl = (args["mcp-url"] || args.url || "").replace(/\/$/, "");
 const token = args.token || "";
-const templateName = args["skill-template"] || "PER_USER_SKILL_TEMPLATE.md";
+const mailboxHint = args["mailbox"] || args["mailbox-id"] || "caigou/hqsc_gd3";
 
 if (!userId) fail("missing --user-id");
 if (!mcpUrl) fail("missing --mcp-url, for example https://mail-analysis.company.example/mcp");
 if (!token) fail("missing --token");
 
-const bridgeTemplatePath = path.join(__dirname, "email_mcp_stdio.mjs");
-const skillTemplatePath = path.isAbsolute(templateName) ? templateName : path.join(__dirname, templateName);
-const outDir = path.join(projectRoot, "dist", "user-delivery", userId);
+const outDir = path.join(projectRoot, "dist", "platform-delivery", userId);
+const adminDir = path.join(outDir, "platform-admin");
 const userDir = path.join(outDir, "user");
-const itDir = path.join(outDir, "it");
+const userTestDir = path.join(outDir, "user-test");
 
-const bridge = fs.readFileSync(bridgeTemplatePath, "utf8")
-  .replaceAll("__MAIL_ANALYSIS_MCP_URL__", mcpUrl)
-  .replaceAll("__MAIL_ANALYSIS_TOKEN__", token);
+const installPath = `C:\\email-mcp\\${userId}\\email_mcp_stdio.mjs`;
 
-const stableBase = mcpUrl.endsWith("/mcp") ? mcpUrl.slice(0, -4) : mcpUrl;
-const skill = fs.readFileSync(skillTemplatePath, "utf8")
-  .replaceAll("<稳定MCP入口>/mcp", mcpUrl)
-  .replaceAll("<稳定MCP入口>", stableBase);
+const platformConfig = {
+  name: "emailProjectAnalysis",
+  command: "node",
+  args: [installPath],
+};
 
-const bridgeRelativeForIt = "../user/email_mcp_stdio.mjs";
-
-const installDoc = `# 邮件问数 MCP 接入说明（部署/IT 使用）
-
-这份文件给部署人员或平台管理员使用，不是给业务用户日常阅读的说明。
-
-## 关键结论
-
-- 文件放进工作区不会自动加载 MCP。
-- \`SKILL.md\` 只告诉智能体什么时候使用邮件问数工具，不负责注册工具。
-- \`email_mcp_stdio.mjs\` 只是本地 stdio 桥接程序，必须被智能体平台注册为 MCP server。
-- 最终用户不需要手动提醒智能体读取 mjs 或 Skill；如果还需要提醒，说明平台侧 MCP 没接好，或当前会话没有加载该 Skill/工具。
-
-## 本交付包结构
-
-\`\`\`text
-user/
-  email_mcp_stdio.mjs       用户专属 MCP stdio 桥接文件，内置该用户 token
-  SKILL.md                  邮件问数 Skill/使用规则
-it/
-  IT_INSTALL.md             本说明，给部署/平台管理员
-  mcp-config.codex.toml     Codex MCP 配置片段
-  mcp-config.generic.json   通用 MCP JSON 配置片段
-\`\`\`
-
-## 必须完成的接入动作
-
-在目标智能体平台里注册 MCP server：
-
-\`\`\`text
-MCP name: emailProjectAnalysis
-command: node
-args: ${bridgeRelativeForIt}
-\`\`\`
-
-生产环境建议把 \`${bridgeRelativeForIt}\` 改成该机器上的绝对路径，例如：
-
-\`\`\`text
-D:/email-mcp/users/${userId}/user/email_mcp_stdio.mjs
-/opt/email-mcp/users/${userId}/user/email_mcp_stdio.mjs
-\`\`\`
-
-如果平台支持远程 MCP connector，也可以由管理员在平台侧直接配置：
-
-\`\`\`text
-name: emailProjectAnalysis
-url: ${mcpUrl}
-authorization: Bearer <该用户 token>
-\`\`\`
-
-两种方式二选一即可。权限仍然只由服务器端 permissions.json 里的 token 记录决定。
-
-## 验收步骤
-
-1. 注册 MCP 后，重启智能体平台或新开会话。
-2. 确认当前会话工具列表里有 \`emailProjectAnalysis\`。
-3. 让智能体问：\`我能访问哪些邮箱？\`。
-4. 如果回答里出现 \`list_mailboxes\` 的真实结果，说明接入成功。
-5. 如果智能体说没有邮件工具、只会读取本地文件，或要求用户手动告诉它读 mjs/Skill，说明 MCP 没注册成功。
-`;
-
-const codexConfig = `[mcp_servers.emailProjectAnalysis]
-command = "node"
-args = ["${bridgeRelativeForIt}"]
-startup_timeout_sec = 30
-`;
-
-const genericConfig = {
-  mcpServers: {
-    emailProjectAnalysis: {
-      command: "node",
-      args: [bridgeRelativeForIt],
-    },
+const remotePlatformConfig = {
+  name: "emailProjectAnalysis",
+  transport: "streamable-http",
+  url: mcpUrl,
+  headers: {
+    Authorization: `Bearer ${token}`,
   },
 };
 
-const userFiles = [
-  ["user/email_mcp_stdio.mjs", bridge],
-  ["user/SKILL.md", skill],
+const bridgeTemplatePath = path.join(projectRoot, "client", "email_mcp_stdio.mjs");
+const bridgeTemplate = fs.readFileSync(bridgeTemplatePath, "utf8");
+const userBridge = bridgeTemplate
+  .replace("__MAIL_ANALYSIS_MCP_URL__", mcpUrl)
+  .replace("__MAIL_ANALYSIS_TOKEN__", token);
+
+const platformAdminDoc = [
+  "# Platform Admin Setup: emailProjectAnalysis",
+  "",
+  "Users do not configure MCP themselves. Prefer the per-user remote MCP registration on platforms that support Streamable HTTP.",
+  "",
+  "## Preferred: Remote MCP",
+  "",
+  "Register platform-admin/remote-mcp-registration.json for this user. It contains the public MCP endpoint and the user's dedicated bearer token.",
+  "",
+  "## Fallback: Stdio MCP",
+  "",
+  `Copy email_mcp_stdio.mjs and SKILL.md to C:\\email-mcp\\${userId}\\, then register:`,
+  "",
+  "name: emailProjectAnalysis",
+  "command: node",
+  `args: ${installPath}`,
+  "",
+  "The user must never edit MCP configuration, token, endpoint, or bridge files. Never share one user's registration or bridge with another user.",
+  "",
+  "## Acceptance",
+  "",
+  "Open a new agent session. Confirm that list_mailboxes, search_threads, get_evidence, and get_index_status are available under emailProjectAnalysis.",
+  `The MCP endpoint is ${mcpUrl}.`,
+  "",
+].join("\n");
+
+const userTestDoc = [
+  "# Email Analysis Acceptance Test",
+  "",
+  "The user does not configure MCP. The platform administrator must load emailProjectAnalysis before this test.",
+  "",
+  "Ask the agent to list all accessible mailboxes. Then ask it to search relevant mail and expand one evidence item.",
+  `Mailbox hint: ${mailboxHint}`,
+  "",
+  "If emailProjectAnalysis or list_mailboxes is unavailable, report that MCP was not loaded into the current agent session.",
+  "",
+].join("\n");
+
+const userSkillDoc = [
+  "# emailProjectAnalysis Mail Analysis",
+  "",
+  "For every mail question, use emailProjectAnalysis. The user only asks questions and never configures tools.",
+  "",
+  "Preferred mode: call the configured MCP tools list_mailboxes, search_threads, get_evidence, and get_index_status.",
+  "",
+  "Workspace fallback: if those MCP tools are not loaded, use the terminal to run the email_mcp_stdio.mjs file located beside this SKILL.md:",
+  "",
+  "node ./email_mcp_stdio.mjs list_mailboxes \"{}\"",
+  "node ./email_mcp_stdio.mjs get_index_status '{\"mailbox_id\":\"MAILBOX_ID\"}'",
+  "node ./email_mcp_stdio.mjs search_threads '{\"mailbox_id\":\"MAILBOX_ID\",\"query\":\"QUERY\"}'",
+  "node ./email_mcp_stdio.mjs get_evidence '{\"mailbox_id\":\"MAILBOX_ID\",\"evidence_id\":\"EVIDENCE_ID\"}'",
+  "",
+  "Parse the JSON output and answer the user from that evidence. Do not merely inspect the source file and do not search unrelated local project files.",
+  "Always list mailboxes before selecting one. Never ask the user for a token, endpoint, MCP configuration, server path, or raw mail files.",
+  "Only use mailboxes returned by list_mailboxes. Clearly distinguish indexed results from mailboxes that are still indexing.",
+  "",
+].join("\n");
+const adminFiles = [
+  ["platform-admin/PLATFORM_ADMIN_SETUP.md", platformAdminDoc],
+  ["platform-admin/mcp-registration.json", JSON.stringify(platformConfig, null, 2) + "\n"],
+  ["platform-admin/remote-mcp-registration.json", JSON.stringify(remotePlatformConfig, null, 2) + "\n"],
 ];
 
-const itFiles = [
-  ["it/IT_INSTALL.md", installDoc],
-  ["it/mcp-config.codex.toml", codexConfig],
-  ["it/mcp-config.generic.json", JSON.stringify(genericConfig, null, 2) + "\n"],
+const userFiles = [
+  ["user/email_mcp_stdio.mjs", userBridge],
+  ["user/SKILL.md", userSkillDoc],
+  ["user-test/USER_TEST_PROMPT.md", userTestDoc],
 ];
 
 fs.rmSync(outDir, { recursive: true, force: true });
-for (const [name, content] of [...userFiles, ...itFiles]) {
+for (const [name, content] of [...adminFiles, ...userFiles]) {
   writeFileStrict(path.join(outDir, name), content);
 }
 
@@ -152,8 +147,12 @@ console.log(JSON.stringify({
   user_id: userId,
   mcp_url: mcpUrl,
   output_dir: outDir,
+  platform_admin_dir: adminDir,
   user_dir: userDir,
-  it_dir: itDir,
+  user_test_dir: userTestDir,
+  delivery_mode: "platform_managed_stdio_bridge_with_embedded_remote_mcp",
+  user_side_manual_config_required: false,
+  platform_admin_files: adminFiles.map(([name]) => name),
   user_files: userFiles.map(([name]) => name),
-  it_files: itFiles.map(([name]) => name),
 }, null, 2));
+

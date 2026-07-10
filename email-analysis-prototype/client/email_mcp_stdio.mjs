@@ -140,6 +140,32 @@ async function callHttpTool(name, args) {
   }
 }
 
+async function runCli() {
+  const command = process.argv[2] || "";
+  if (!command) return false;
+  if (command === "--help" || command === "help") {
+    process.stdout.write(`${JSON.stringify({ tools: tools.map((tool) => tool.name), usage: "node email_mcp_stdio.mjs <tool-name> '<json-arguments>'" }, null, 2)}\n`);
+    return true;
+  }
+  if (!tools.some((tool) => tool.name === command)) {
+    process.stderr.write(`unknown tool: ${command}\n`);
+    process.exitCode = 2;
+    return true;
+  }
+  let args = {};
+  const rawArgs = process.argv[3] || "{}";
+  try {
+    args = JSON.parse(rawArgs);
+  } catch (err) {
+    process.stderr.write(`invalid JSON arguments: ${String(err && err.message ? err.message : err)}\n`);
+    process.exitCode = 2;
+    return true;
+  }
+  const data = await callHttpTool(command, args);
+  process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+  if (data && data.error) process.exitCode = 1;
+  return true;
+}
 async function handle(message) {
   const { id, method } = message;
   const params = message.params || {};
@@ -210,9 +236,16 @@ async function processBuffer() {
   }
 }
 
-process.stdin.on("data", (chunk) => {
-  buffer = Buffer.concat([buffer, chunk]);
-  processBuffer().catch((err) => writeMessage(error(null, -32000, String(err && err.message ? err.message : err))));
-});
+if (process.argv.length > 2) {
+  runCli().catch((err) => {
+    process.stderr.write(`${String(err && err.message ? err.message : err)}\n`);
+    process.exitCode = 1;
+  });
+} else {
+  process.stdin.on("data", (chunk) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    processBuffer().catch((err) => writeMessage(error(null, -32000, String(err && err.message ? err.message : err))));
+  });
+}
 
 

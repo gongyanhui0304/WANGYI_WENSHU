@@ -1,12 +1,10 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Local stdio MCP bridge for Codex.
 
 Codex runs this process as an MCP server. The bridge forwards tool calls to the
 server-side mail HTTP data API. It never reads local mail files.
 """
-
-from __future__ import annotations
 
 import json
 import os

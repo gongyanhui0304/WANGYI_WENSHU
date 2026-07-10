@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Server-side lightweight mail indexer v3.
 
@@ -7,8 +7,6 @@ folder, skips empty attachment placeholders, extracts useful subjects from folde
 names / EML headers / ICS SUMMARY / Word mail exports, and writes JSON indexes under
 $MAIL_INDEX_ROOT/<mailbox_id>.
 """
-
-from __future__ import annotations
 
 import argparse
 import email
@@ -25,7 +23,7 @@ import time
 import zipfile
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from xml.etree import ElementTree
 
 
@@ -241,6 +239,8 @@ def message_key(raw_root: Path, path: Path) -> Tuple[str, Path]:
         if idx > 0:
             folder = raw_root.joinpath(*rel_parts[:idx])
             return folder.relative_to(raw_root).as_posix(), folder
+    if path.suffix.lower() in {".eml", ".ics"}:
+        return path.relative_to(raw_root).as_posix(), path
     if len(rel_parts) >= 2:
         folder = raw_root.joinpath(*rel_parts[:-1])
         return folder.relative_to(raw_root).as_posix(), folder
@@ -413,7 +413,7 @@ def file_sig(path: Path) -> Tuple[int, int]:
 def connect_state(index_dir: Path) -> sqlite3.Connection:
     state_dir = index_dir / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(state_dir / "indexed_files.sqlite")
+    conn = sqlite3.connect(str(state_dir / "indexed_files.sqlite"))
     conn.row_factory = sqlite3.Row
     conn.executescript(
         """
@@ -652,7 +652,7 @@ def write_thread_index(index_dir: Path, mailbox_id: str, records: List[Dict[str,
     rollup.mkdir(parents=True, exist_ok=True)
     target = rollup / "thread_index.sqlite"
     tmp = rollup / f"thread_index.sqlite.tmp.{os.getpid()}.{uuid.uuid4().hex}"
-    conn = sqlite3.connect(tmp)
+    conn = sqlite3.connect(str(tmp))
     try:
         conn.executescript("""
             create table evidence_locator (evidence_id text primary key, mailbox_id text not null, thread_id text not null, shard_id text not null, subject text, sent_at text, search_text text);

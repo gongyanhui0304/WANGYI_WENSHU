@@ -6,14 +6,13 @@ This is intentionally small and dependency-free. It is not a general file API.
 It exposes only mailbox-scoped operations and denies arbitrary path reads.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import sqlite3
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from socketserver import ThreadingMixIn
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -129,7 +128,7 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
     db = _thread_index_path(mailbox_id)
     if not db.exists():
         return None
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     try:
         lowered = query.lower().strip()
@@ -167,7 +166,7 @@ def _evidence_locators(mailbox_id: str, evidence_id: Any, thread_id: Any) -> Opt
     db = _thread_index_path(mailbox_id)
     if not db.exists():
         return None
-    conn = sqlite3.connect(db)
+    conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     try:
         if evidence_id:
@@ -485,6 +484,17 @@ def _handle_mcp_payload(user: Dict[str, Any], payload: Any) -> Optional[Any]:
     return _mcp_error(None, -32600, "invalid MCP message")
 
 
+PUBLIC_MCP_METHODS = {"initialize", "notifications/initialized", "ping", "tools/list"}
+
+
+def _mcp_payload_requires_auth(payload: Any) -> bool:
+    messages = payload if isinstance(payload, list) else [payload]
+    return any(
+        not isinstance(message, dict) or message.get("method") not in PUBLIC_MCP_METHODS
+        for message in messages
+    )
+
+
 TOOLS = {
     "list_mailboxes": list_mailboxes,
     "get_index_status": get_index_status,
@@ -495,13 +505,13 @@ TOOLS = {
 }
 
 
+class ThreadingHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
+
+
 class MailApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path.strip("/")
-        user = _current_user(self)
-        if not user:
-            _json_response(self, 401, {"error": "unauthorized"})
-            return
         length = int(self.headers.get("Content-Length", "0"))
         raw_body = self.rfile.read(length).decode("utf-8") if length else "{}"
         try:
@@ -510,12 +520,20 @@ class MailApiHandler(BaseHTTPRequestHandler):
             _json_response(self, 400, {"error": "invalid_json"})
             return
 
+        user = _current_user(self)
         if path == "mcp":
-            response = _handle_mcp_payload(user, payload)
+            if not user and _mcp_payload_requires_auth(payload):
+                _json_response(self, 401, {"error": "unauthorized"})
+                return
+            response = _handle_mcp_payload(user or {}, payload)
             if response is None:
                 _empty_response(self, 202)
                 return
             _json_response(self, 200, response)
+            return
+
+        if not user:
+            _json_response(self, 401, {"error": "unauthorized"})
             return
 
         tool = path

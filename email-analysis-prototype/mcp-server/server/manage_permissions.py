@@ -1,8 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Manage token-to-mailbox permissions for the email analysis MCP API."""
-
-from __future__ import annotations
 
 import argparse
 import json
@@ -89,7 +87,7 @@ def cmd_remove_user(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--file", type=Path, required=True, help="permissions.json path")
-    sub = parser.add_subparsers(dest="command", required=True)
+    sub = parser.add_subparsers(dest="command")
 
     p_list = sub.add_parser("list")
     p_list.set_defaults(func=cmd_list)
@@ -109,6 +107,8 @@ def main() -> None:
     p_rm.set_defaults(func=cmd_remove_user)
 
     args = parser.parse_args()
+    if not hasattr(args, "func"):
+        parser.error("command is required")
     args.func(args)
 
 
