@@ -1,0 +1,54 @@
+﻿{
+    "page":  1,
+    "name":  "封面",
+    "enabled":  true,
+    "type":  "cover",
+    "data_source":  [
+                        "SystemDate"
+                    ],
+    "dynamic_fields":  [
+                           "week",
+                           "date_range"
+                       ],
+    "fixed_fields":  [
+                         "logo",
+                         "background",
+                         "layout",
+                         "title",
+                         "font",
+                         "color"
+                     ],
+    "standard_ref":  "ppt/spec/page_standard.md",
+    "sql_path":  "无。",
+    "metrics":  [
+                    "M101",
+                    "M102"
+                ],
+    "debug_output_dir":  "output/debug/page_01_cover",
+    "debug_outputs":  [
+                          "metrics.json",
+                          "ai_summary.md",
+                          "date_context.json",
+                          "execution.log"
+                      ],
+    "drill_down":  {
+                       "enabled":  false,
+                       "rule":  "无图表，无需 DrillDown。"
+                   },
+    "visual_reference":  "example.png",
+    "trace_required":  true,
+    "metric_queries":  {
+                           "M101":  {
+                                        "source":  "system_date",
+                                        "metric_name":  "周数",
+                                        "table":  "system_date",
+                                        "description":  "根据系统当前日期计算自然周"
+                                    },
+                           "M102":  {
+                                        "source":  "system_date",
+                                        "metric_name":  "日期范围",
+                                        "table":  "system_date",
+                                        "description":  "根据系统当前日期计算周一至周日日期范围"
+                                    }
+                       }
+}

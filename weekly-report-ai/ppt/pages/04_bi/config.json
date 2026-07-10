@@ -1,0 +1,128 @@
+﻿{
+    "page":  4,
+    "name":  "BI低活跃报表治理",
+    "enabled":  true,
+    "type":  "bi_low_activity_governance",
+    "default_period":  "week",
+    "periods":  [
+                    "week",
+                    "month"
+                ],
+    "data_source":  [
+                        "SmartBI SQL Server",
+                        "knowledge/smartbi/sql/009_报表使用Woet20-SAP系统.sql",
+                        "knowledge/smartbi/sql/011_报表使用Top20-BI系统.sql",
+                        "knowledge/smartbi/sql/014_周维度-报表使用Woet20-SAP系统.sql",
+                        "knowledge/smartbi/sql/016_周维度-报表使用Top20-BI系统.sql",
+                        "knowledge/smartbi/sql/020_周维度-报表使用Top20-BI系统-备份.sql"
+                    ],
+    "debug_output_dir":  "output/debug/page_04_bi_low_activity",
+    "debug_outputs":  [
+                          "metrics.json",
+                          "ai_summary.md",
+                          "week_low_activity.sql",
+                          "month_low_activity.sql",
+                          "week_low_activity_top20.csv",
+                          "month_low_activity_top20.csv",
+                          "system_summary.csv",
+                          "report_detail.csv",
+                          "execution.log"
+                      ],
+    "metrics":  [
+                    "M401",
+                    "M402",
+                    "M403",
+                    "M404",
+                    "M405",
+                    "M406"
+                ],
+    "dynamic_fields":  [
+                           "report_total",
+                           "low_activity_count",
+                           "zero_visit_7d_count",
+                           "low_activity_rate",
+                           "system_low_activity_summary",
+                           "low_activity_top20",
+                           "governance_action_distribution",
+                           "ai_summary"
+                       ],
+    "fixed_fields":  [
+                         "layout",
+                         "title",
+                         "font",
+                         "color",
+                         "footer"
+                     ],
+    "drill_down":  {
+                       "enabled":  true,
+                       "trigger":  "report_name",
+                       "fields":  [
+                                      "report_code",
+                                      "system",
+                                      "maintain_department",
+                                      "owner",
+                                      "visit_7d",
+                                      "visit_30d",
+                                      "last_visit_time",
+                                      "governance_action",
+                                      "source_sql",
+                                      "access_user",
+                                      "access_time"
+                                  ]
+                   },
+    "prohibited":  [
+                       "访问量Top20",
+                       "高活跃报表展示",
+                       "无SQL来源数据",
+                       "AI编造访问次数"
+                   ],
+    "standard_ref":  "ppt/spec/page_standard.md",
+    "sql_path":  "knowledge/smartbi/sql/",
+    "visual_reference":  "example.png",
+    "trace_required":  true,
+    "metric_queries":  {
+                           "M401":  {
+                                        "source":  "smartbi_sqlserver",
+                                        "sql_file":  "knowledge/smartbi/sql/metrics/M401_report_total.sql",
+                                        "value_mode":  "row_count",
+                                        "table":  "SmartBI report tables",
+                                        "description":  "统计 SmartBI 报表总数并保留明细"
+                                    },
+                           "M402":  {
+                                        "source":  "smartbi_sqlserver",
+                                        "sql_file":  "knowledge/smartbi/sql/metrics/M402_low_activity_reports.sql",
+                                        "value_mode":  "row_count",
+                                        "table":  "SmartBI report/access log tables",
+                                        "description":  "统计近30天访问次数小于等于5的低活跃报表明细"
+                                    },
+                           "M403":  {
+                                        "source":  "smartbi_sqlserver",
+                                        "sql_file":  "knowledge/smartbi/sql/metrics/M403_zero_visit_7d_reports.sql",
+                                        "value_mode":  "row_count",
+                                        "table":  "SmartBI report/access log tables",
+                                        "description":  "统计近7天零访问报表明细"
+                                    },
+                           "M404":  {
+                                        "source":  "smartbi_sqlserver",
+                                        "sql_file":  "knowledge/smartbi/sql/metrics/M404_low_activity_rate.sql",
+                                        "value_mode":  "sum_field",
+                                        "value_field":  "low_activity_rate",
+                                        "table":  "derived metric",
+                                        "description":  "低活跃报表数量除以报表总数"
+                                    },
+                           "M405":  {
+                                        "source":  "smartbi_sqlserver",
+                                        "sql_file":  "knowledge/smartbi/sql/metrics/M405_system_low_activity_summary.sql",
+                                        "value_mode":  "dataframe_rows",
+                                        "table":  "SmartBI report/access log tables",
+                                        "description":  "按系统统计低活跃报表数量"
+                                    },
+                           "M406":  {
+                                        "source":  "smartbi_sqlserver",
+                                        "sql_file":  "knowledge/smartbi/sql/metrics/M406_low_activity_top20.sql",
+                                        "value_mode":  "dataframe_rows",
+                                        "table":  "SmartBI report/access log tables",
+                                        "description":  "低活跃报表 Top20 明细，按近30天访问次数升序"
+                                    }
+                       }
+}

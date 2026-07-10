@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+
+output/
+data/exports/
+data/uploads/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
