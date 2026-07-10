@@ -32,6 +32,8 @@ DEFAULT_MAILBOX_ID=不配置
 
 当前用户能访问哪些邮箱，必须以 `list_mailboxes` 返回结果为准。
 
+服务器侧新增邮件、更新索引或给 token 增加邮箱权限后，用户端不需要更新本 Skill；后续调用 `list_mailboxes`、`query_summary`、`search_threads`、`smart_search` 会以服务器当前权限和索引为准。
+
 ## 何时使用
 
 当用户询问以下内容时，优先使用 `emailProjectAnalysis` MCP 工具：
@@ -46,8 +48,8 @@ DEFAULT_MAILBOX_ID=不配置
 ## 强制规则
 
 - 绝对不要使用 Gmail / Google Mail / 个人邮箱工具回答公司邮件索引问题。
-- 出现 `caigou/...`、`yingxiao/...`、`hqsc_...`、公司邮箱路径、项目/客户/订单/审批/报价/样品/附件/证据查询时，只能使用 `emailProjectAnalysis`。
-- `caigou/hqsc_gd3` 这类字符串是企业邮件索引的 `mailbox_id`，不是 Gmail 标签，不要去 Gmail 里按标签搜索。
+- 出现公司邮箱路径、`部门/邮箱目录` 格式、`list_mailboxes` 返回过的任意 `mailbox_id`、项目/客户/订单/审批/报价/样品/附件/证据查询时，只能使用 `emailProjectAnalysis`。
+- `caigou/...`、`yingxiao/...` 等只是企业邮件索引 `mailbox_id` 的例子，不是固定范围；所有 `list_mailboxes` 返回的 mailbox_id 都按同一规则处理，不要去 Gmail 里按标签搜索。
 - 用户给出明确 `mailbox_id` 和关键词时，优先调用 `smart_search` 或 `search_threads`，不要调用 Gmail。
 - 先调用 `list_mailboxes`，确认当前 token 可访问的邮箱。
 - 只有用户明确指定邮箱、上下文唯一指向邮箱，或 `list_mailboxes` 只返回一个邮箱时，才选择该邮箱。

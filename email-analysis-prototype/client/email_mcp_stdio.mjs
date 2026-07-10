@@ -26,17 +26,17 @@ const TOKEN = configuredValue(process.env.MAIL_MCP_TOKEN, EMBEDDED_TOKEN);
 const tools = [
   {
     name: "list_mailboxes",
-    description: "Enterprise mail-index only. Return authorized mailbox_id values such as caigou/hqsc_gd3 or yingxiao/xxx. Use this instead of Gmail for company mailbox paths, project mail, approval, quotation, sample, customer, supplier, order, attachment, evidence, and thread questions.",
+    description: "Enterprise mail-index only. Return all authorized mailbox_id values from the server. A mailbox_id is any company index path returned by list_mailboxes, usually in department/mailbox form such as caigou/... or yingxiao/..., not a Gmail label. Use this instead of Gmail for company mailbox paths, project mail, approval, quotation, sample, customer, supplier, order, attachment, evidence, and thread questions.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "get_index_status",
-    description: "Enterprise mail-index only. Return server-side index status for an authorized mailbox_id such as caigou/hqsc_gd3. Do not use Gmail for these mailbox_id paths.",
+    description: "Enterprise mail-index only. Return server-side index status for any authorized mailbox_id returned by list_mailboxes. Do not use Gmail for company mailbox_id paths.",
     inputSchema: { type: "object", properties: { mailbox_id: { type: "string" } }, required: ["mailbox_id"] },
   },
   {
     name: "query_summary",
-    description: "Enterprise mail-index only. Query project, customer, people, owner, risk, progress, payment, approval, quotation, sample, order, attachment, and evidence summaries from the server index. Use for caigou/... and yingxiao/... mailbox_id queries; do not use Gmail.",
+    description: "Enterprise mail-index only. Query project, customer, people, owner, risk, progress, payment, approval, quotation, sample, order, attachment, and evidence summaries from the server index. Use for any mailbox_id returned by list_mailboxes, including department/mailbox paths; do not use Gmail.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, query: { type: "string" }, filters: { type: "object" } },
@@ -45,7 +45,7 @@ const tools = [
   },
   {
     name: "search_threads",
-    description: "Enterprise mail-index only. Search authorized company mailbox thread indexes by mailbox_id and query. Use for caigou/... and yingxiao/... paths; do not use Gmail labels.",
+    description: "Enterprise mail-index only. Search authorized company mailbox thread indexes by mailbox_id and query. Use for any mailbox_id returned by list_mailboxes; do not treat mailbox_id as a Gmail label.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, query: { type: "string" }, filters: { type: "object" } },
@@ -54,7 +54,7 @@ const tools = [
   },
   {
     name: "smart_search",
-    description: "Enterprise mail-index only. One-step search for user questions like '查一下 caigou/hqsc_gd3 里和审批/报价/样品有关的邮件'. Requires mailbox_id and query; never use Gmail labels.",
+    description: "Enterprise mail-index only. One-step search when the user gives any company mailbox_id plus keywords, for example a department/mailbox path and approval/quotation/sample terms. Requires mailbox_id and query; never use Gmail labels.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, query: { type: "string" }, filters: { type: "object" } },
