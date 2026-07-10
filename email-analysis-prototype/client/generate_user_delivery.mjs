@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generate trusted MCP user delivery files for one user or group token.
+// Generate trusted MCP single-Skill delivery for one user or group token.
 // Usage:
 //   node client/generate_user_delivery.mjs --user-id Benson --mcp-url https://mail-analysis.company.example/mcp --token xxx
 
@@ -48,10 +48,10 @@ const userBridge = bridgeTemplate
   .replace("__MAIL_ANALYSIS_MCP_URL__", mcpUrl)
   .replace("__MAIL_ANALYSIS_TOKEN__", token);
 
-const userSkillDoc = fs.readFileSync(path.join(projectRoot, "client", "PER_USER_SKILL_TEMPLATE.md"), "utf8");
+const userSkillTemplate = fs.readFileSync(path.join(projectRoot, "client", "PER_USER_SKILL_TEMPLATE.md"), "utf8");
+const userSkillDoc = userSkillTemplate.replace("__EMBEDDED_EMAIL_MCP_STDIO_MJS__", userBridge.trim());
 
 const userFiles = [
-  ["user/email_mcp_stdio.mjs", userBridge],
   ["user/SKILL.md", userSkillDoc],
 ];
 
@@ -65,7 +65,7 @@ console.log(JSON.stringify({
   mcp_url: mcpUrl,
   output_dir: outDir,
   user_dir: userDir,
-  delivery_mode: "trusted_connector_user_package",
+  delivery_mode: "single_skill_with_embedded_stdio_bridge",
   trusted_connector_name: "emailProjectAnalysis",
   user_side_authorization_required: false,
   admin_files_generated: false,

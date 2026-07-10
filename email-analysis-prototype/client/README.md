@@ -1,17 +1,16 @@
 # Client Delivery
 
-`client/generate_user_delivery.mjs` generates a trusted-connector user delivery bundle for one user.
+`client/generate_user_delivery.mjs` generates a single-file user Skill bundle for one user.
 
 The output is intentionally split by role:
 
 ```text
 dist/platform-delivery/<user-id>/
 └── user/
-    ├── email_mcp_stdio.mjs
     └── SKILL.md
 ```
 
-`user/` contains only the two files tied to that user's token. No administrator registration files are generated in the user delivery output.
+`user/` contains only `SKILL.md`. The Skill embeds the per-user stdio bridge and token so the fallback path still works when platform MCP tools are absent.
 
 Generate it from the project root:
 
