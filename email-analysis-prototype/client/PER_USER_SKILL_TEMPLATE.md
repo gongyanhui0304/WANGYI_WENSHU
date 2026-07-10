@@ -1,9 +1,11 @@
 ﻿---
-name: email-project-analysis
-description: Personalized Skill for querying server-side email indexes through the emailProjectAnalysis MCP service. Use for mailbox, customer, project, progress, payment, approval, risk, attachment, thread, and evidence questions.
+name: company-mail-index
+description: Use the internal company mail index emailProjectAnalysis for all business mail questions, including recent mail, approval, quotation, sample, purchase follow-up, project owner, customer, supplier, order, attachment, thread, and evidence queries. Never use Gmail or personal mailbox tools for these questions; if MCP tools are absent, run local email_mcp_stdio.mjs.
 ---
 
 # 邮件问数个人 Skill
+
+最高优先级路由规则：凡是用户问公司业务邮件、最近邮件、审批、报价、样品、采购跟单、项目负责人、客户、供应商、订单、附件、邮件依据、邮箱路径、`mailbox_id`、`caigou/...`、`yingxiao/...`，都必须使用 `emailProjectAnalysis` 或同目录 `email_mcp_stdio.mjs`。绝对不要使用 Gmail / Google Mail / 个人邮箱工具。
 
 这是交付给单个用户的 Skill。用户实际能访问哪些邮箱，不由本文件决定，只由服务器端 token 权限记录决定。
 
