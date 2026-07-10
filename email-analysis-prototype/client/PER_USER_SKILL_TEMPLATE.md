@@ -11,7 +11,9 @@ description: Personalized Skill for querying server-side email indexes through t
 
 `emailProjectAnalysis` 应由公司统一部署为受信任 MCP 连接器。用户侧不需要配置 MCP，不需要提供 token，不需要额外口头授权。
 
-如果当前会话看不到 `emailProjectAnalysis` 工具，说明该智能体环境尚未完成统一连接器部署；不要向用户索要授权或要求用户手动配置，直接说明连接器未加载。
+如果当前会话看不到 `emailProjectAnalysis` 工具，但当前工作区或交付目录存在 `email_mcp_stdio.mjs`，必须直接用本地 Node 桥接脚本查询，不要停住、不要改用 Gmail、不要向用户索要授权或要求用户手动配置。
+
+只有在 `emailProjectAnalysis` 工具不可见且本地 `email_mcp_stdio.mjs` 也不可用时，才说明当前智能体环境没有可用的企业邮件索引连接器。
 
 ## 已部署服务说明
 
@@ -19,7 +21,7 @@ description: Personalized Skill for querying server-side email indexes through t
 
 适用问题不限问法，也不限“项目”。包括但不限于：客户、供应商、订单、料号、报价、样品、付款、审批、发票、合同、附件、收发件人、时间线、进展、风险、异常、最近动态、历史邮件、原文依据等。
 
-不要再向用户索要 token、服务器地址、MCP 配置或额外的口头授权；应直接调用 `list_mailboxes` 开始查询。
+不要再向用户索要 token、服务器地址、MCP 配置或额外的口头授权；应直接调用 `list_mailboxes` 开始查询。若 MCP 工具不可见，则直接运行同目录 `email_mcp_stdio.mjs` 对应命令。
 
 ## 连接信息
 
@@ -48,6 +50,7 @@ DEFAULT_MAILBOX_ID=不配置
 ## 强制规则
 
 - 绝对不要使用 Gmail / Google Mail / 个人邮箱工具回答公司邮件索引问题。
+- 如果 `emailProjectAnalysis` 工具不可见，使用本地 `email_mcp_stdio.mjs` CLI 作为同一企业邮件索引服务的桥接入口；这不是 Gmail，也不是读取本地邮件。
 - 出现公司邮箱路径、`部门/邮箱目录` 格式、`list_mailboxes` 返回过的任意 `mailbox_id`、项目/客户/订单/审批/报价/样品/附件/证据查询时，只能使用 `emailProjectAnalysis`。
 - `caigou/...`、`yingxiao/...` 等只是企业邮件索引 `mailbox_id` 的例子，不是固定范围；所有 `list_mailboxes` 返回的 mailbox_id 都按同一规则处理，不要去 Gmail 里按标签搜索。
 - 用户给出明确 `mailbox_id` 和关键词时，优先调用 `smart_search` 或 `search_threads`，不要调用 Gmail。
@@ -70,19 +73,20 @@ DEFAULT_MAILBOX_ID=不配置
 
 ## 查询流程
 
-1. 调用 `list_mailboxes`。
-2. 确定邮箱后调用 `get_index_status(mailbox_id)`。
-3. 一般分析调用 `query_summary(mailbox_id, query)`。
-4. 需要邮件往来细节时调用 `smart_search(mailbox_id, query, filters)` 或 `search_threads(mailbox_id, query, filters)`。
-5. 用户要求依据、原文或完整线程时调用 `get_evidence(mailbox_id, evidence_id 或 thread_id)`。
-6. 只有用户明确要求且 token 有权限时调用 `rebuild_index(mailbox_id)`。
+1. 优先调用 MCP 工具 `list_mailboxes`。
+2. 如果 MCP 工具不可见，运行 `node ./email_mcp_stdio.mjs list_mailboxes "{}"`。
+3. 确定邮箱后调用 `get_index_status(mailbox_id)`；CLI 兜底为 `node ./email_mcp_stdio.mjs get_index_status "{\"mailbox_id\":\"MAILBOX_ID\"}"`。
+4. 一般分析调用 `query_summary(mailbox_id, query)`；CLI 兜底为 `node ./email_mcp_stdio.mjs query_summary "{\"mailbox_id\":\"MAILBOX_ID\",\"query\":\"QUERY\"}"`。
+5. 需要邮件往来细节时调用 `smart_search(mailbox_id, query, filters)` 或 `search_threads(mailbox_id, query, filters)`；CLI 兜底为 `node ./email_mcp_stdio.mjs smart_search "{\"mailbox_id\":\"MAILBOX_ID\",\"query\":\"QUERY\"}"`。
+6. 用户要求依据、原文或完整线程时调用 `get_evidence(mailbox_id, evidence_id 或 thread_id)`。
+7. 只有用户明确要求且 token 有权限时调用 `rebuild_index(mailbox_id)`。
 
 ## 回答格式
 
 优先给结论，再给依据。不要一次性粘贴大量邮件原文。用户要求“打开依据 / 原始邮件 / 完整线程”时，再展示受控证据。
 
-如果工具不可用，直接回复：
+如果 MCP 工具和本地桥接脚本都不可用，才回复：
 
 ```text
-当前智能体环境没有加载受信任连接器 emailProjectAnalysis，无法查询服务器邮件索引。请联系部署侧检查统一 MCP 连接器是否已启用。
+当前智能体环境没有加载受信任连接器 emailProjectAnalysis，且当前目录没有可用的 email_mcp_stdio.mjs 桥接脚本，无法查询服务器邮件索引。请联系部署侧检查统一 MCP 连接器是否已启用或用户包是否完整。
 ```
