@@ -26,17 +26,17 @@ const TOKEN = configuredValue(process.env.MAIL_MCP_TOKEN, EMBEDDED_TOKEN);
 const tools = [
   {
     name: "list_mailboxes",
-    description: "Return mailboxes authorized for the current user token.",
+    description: "Enterprise mail-index only. Return authorized mailbox_id values such as caigou/hqsc_gd3 or yingxiao/xxx. Use this instead of Gmail for company mailbox paths, project mail, approval, quotation, sample, customer, supplier, order, attachment, evidence, and thread questions.",
     inputSchema: { type: "object", properties: {} },
   },
   {
     name: "get_index_status",
-    description: "Return server-side index status for an authorized mailbox.",
+    description: "Enterprise mail-index only. Return server-side index status for an authorized mailbox_id such as caigou/hqsc_gd3. Do not use Gmail for these mailbox_id paths.",
     inputSchema: { type: "object", properties: { mailbox_id: { type: "string" } }, required: ["mailbox_id"] },
   },
   {
     name: "query_summary",
-    description: "Query project, customer, people, risk, progress, payment, approval, and other summaries from the server index.",
+    description: "Enterprise mail-index only. Query project, customer, people, owner, risk, progress, payment, approval, quotation, sample, order, attachment, and evidence summaries from the server index. Use for caigou/... and yingxiao/... mailbox_id queries; do not use Gmail.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, query: { type: "string" }, filters: { type: "object" } },
@@ -45,7 +45,16 @@ const tools = [
   },
   {
     name: "search_threads",
-    description: "Search authorized mailbox thread indexes.",
+    description: "Enterprise mail-index only. Search authorized company mailbox thread indexes by mailbox_id and query. Use for caigou/... and yingxiao/... paths; do not use Gmail labels.",
+    inputSchema: {
+      type: "object",
+      properties: { mailbox_id: { type: "string" }, query: { type: "string" }, filters: { type: "object" } },
+      required: ["mailbox_id", "query"],
+    },
+  },
+  {
+    name: "smart_search",
+    description: "Enterprise mail-index only. One-step search for user questions like '查一下 caigou/hqsc_gd3 里和审批/报价/样品有关的邮件'. Requires mailbox_id and query; never use Gmail labels.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, query: { type: "string" }, filters: { type: "object" } },
@@ -54,7 +63,7 @@ const tools = [
   },
   {
     name: "get_evidence",
-    description: "Return original evidence by evidence_id or thread_id within an authorized mailbox.",
+    description: "Enterprise mail-index only. Return original indexed evidence by evidence_id or thread_id within an authorized company mailbox_id. Do not use Gmail.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, evidence_id: { type: "string" }, thread_id: { type: "string" } },
@@ -63,7 +72,7 @@ const tools = [
   },
   {
     name: "rebuild_index",
-    description: "Request server-side index rebuild for an authorized mailbox when explicitly allowed.",
+    description: "Enterprise mail-index only. Request server-side index rebuild for an authorized mailbox_id when explicitly allowed. Do not use Gmail.",
     inputSchema: {
       type: "object",
       properties: { mailbox_id: { type: "string" }, reason: { type: "string" } },
@@ -97,15 +106,16 @@ function error(id, code, message) {
 async function callHttpTool(name, args) {
   if (!TOKEN) return { error: "missing_MAIL_MCP_TOKEN" };
   const payload = { ...(args || {}) };
+  const remoteName = name === "smart_search" ? "search_threads" : name;
   try {
     const isRemoteMcp = BASE_URL.endsWith("/mcp");
-    const url = isRemoteMcp ? BASE_URL : `${BASE_URL}/${name}`;
+    const url = isRemoteMcp ? BASE_URL : `${BASE_URL}/${remoteName}`;
     const body = isRemoteMcp
       ? {
           jsonrpc: "2.0",
           id: Date.now(),
           method: "tools/call",
-          params: { name, arguments: payload },
+          params: { name: remoteName, arguments: payload },
         }
       : payload;
     const response = await fetch(url, {
@@ -248,4 +258,3 @@ if (process.argv.length > 2) {
     processBuffer().catch((err) => writeMessage(error(null, -32000, String(err && err.message ? err.message : err))));
   });
 }
-

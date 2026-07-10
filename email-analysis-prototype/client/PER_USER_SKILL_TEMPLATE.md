@@ -45,6 +45,10 @@ DEFAULT_MAILBOX_ID=不配置
 
 ## 强制规则
 
+- 绝对不要使用 Gmail / Google Mail / 个人邮箱工具回答公司邮件索引问题。
+- 出现 `caigou/...`、`yingxiao/...`、`hqsc_...`、公司邮箱路径、项目/客户/订单/审批/报价/样品/附件/证据查询时，只能使用 `emailProjectAnalysis`。
+- `caigou/hqsc_gd3` 这类字符串是企业邮件索引的 `mailbox_id`，不是 Gmail 标签，不要去 Gmail 里按标签搜索。
+- 用户给出明确 `mailbox_id` 和关键词时，优先调用 `smart_search` 或 `search_threads`，不要调用 Gmail。
 - 先调用 `list_mailboxes`，确认当前 token 可访问的邮箱。
 - 只有用户明确指定邮箱、上下文唯一指向邮箱，或 `list_mailboxes` 只返回一个邮箱时，才选择该邮箱。
 - 如果返回多个邮箱且用户没有指定，先用 `query_summary` 或 `search_threads` 在可访问邮箱中查找最相关结果；只有结果仍然不明确时才让用户选择邮箱。
@@ -67,7 +71,7 @@ DEFAULT_MAILBOX_ID=不配置
 1. 调用 `list_mailboxes`。
 2. 确定邮箱后调用 `get_index_status(mailbox_id)`。
 3. 一般分析调用 `query_summary(mailbox_id, query)`。
-4. 需要邮件往来细节时调用 `search_threads(mailbox_id, query, filters)`。
+4. 需要邮件往来细节时调用 `smart_search(mailbox_id, query, filters)` 或 `search_threads(mailbox_id, query, filters)`。
 5. 用户要求依据、原文或完整线程时调用 `get_evidence(mailbox_id, evidence_id 或 thread_id)`。
 6. 只有用户明确要求且 token 有权限时调用 `rebuild_index(mailbox_id)`。
 

@@ -15,7 +15,6 @@ from pathlib import Path
 from socketserver import ThreadingMixIn
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
-import re
 
 
 def required_env(name: str) -> str:
@@ -125,30 +124,6 @@ def _load_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _query_terms(query: str) -> List[str]:
-    query = query.lower().strip()
-    if not query:
-        return []
-    parts = re.split(r"[\s,;；、，。:：()（）\[\]{}<>《》\"'`]+", query)
-    terms = []
-    for part in parts:
-        part = part.strip()
-        if len(part) >= 2 and part not in terms:
-            terms.append(part)
-    if query and query not in terms and len(query) <= 80:
-        terms.append(query)
-    return terms[:12]
-
-
-def _score_text(text: str, terms: List[str]) -> int:
-    lowered = text.lower()
-    score = 0
-    for term in terms:
-        if term in lowered:
-            score += 10 + min(lowered.count(term), 5)
-    return score
-
-
 def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Optional[List[Dict[str, Any]]]:
     db = _thread_index_path(mailbox_id)
     if not db.exists():
@@ -156,13 +131,11 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     try:
-        terms = _query_terms(query)
-        if terms:
-            clauses = " or ".join(["search_text like ?"] * len(terms))
-            params: List[Any] = [mailbox_id] + [f"%{term}%" for term in terms] + [max(limit * 10, 100)]
+        lowered = query.lower().strip()
+        if lowered:
             rows = conn.execute(
-                f"select * from threads where mailbox_id = ? and ({clauses}) order by last_updated_at desc limit ?",
-                params,
+                "select * from threads where mailbox_id = ? and search_text like ? order by last_updated_at desc limit ?",
+                (mailbox_id, f"%{lowered}%", limit),
             ).fetchall()
         else:
             rows = conn.execute(
@@ -171,11 +144,7 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
             ).fetchall()
         result = []
         for row in rows:
-            search_text = row["search_text"] or ""
-            score = _score_text(search_text, terms) if terms else 0
-            if terms and score <= 0:
-                continue
-            item = (
+            result.append(
                 {
                     "thread_id": row["thread_id"],
                     "subject": row["subject"] or "",
@@ -186,49 +155,9 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
                     "message_count": row["message_count"],
                     "evidence_ids": json.loads(row["evidence_ids_json"] or "[]"),
                     "summary": row["summary"] or "",
-                    "match_score": score,
                 }
             )
-            result.append(item)
-        if terms:
-            result.sort(key=lambda x: (int(x.get("match_score", 0)), str(x.get("last_updated_at") or "")), reverse=True)
-        return result[:limit]
-    finally:
-        conn.close()
-
-
-def _evidence_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Optional[List[Dict[str, str]]]:
-    db = _thread_index_path(mailbox_id)
-    if not db.exists():
-        return None
-    terms = _query_terms(query)
-    if not terms:
-        return []
-    conn = sqlite3.connect(str(db))
-    conn.row_factory = sqlite3.Row
-    try:
-        clauses = " or ".join(["search_text like ?"] * len(terms))
-        params: List[Any] = [mailbox_id] + [f"%{term}%" for term in terms] + [max(limit * 10, 100)]
-        rows = conn.execute(
-            f"select evidence_id, thread_id, shard_id, subject, sent_at, search_text from evidence_locator where mailbox_id = ? and ({clauses}) order by sent_at desc limit ?",
-            params,
-        ).fetchall()
-        scored = []
-        for row in rows:
-            score = _score_text(row["search_text"] or "", terms)
-            if score > 0:
-                scored.append(
-                    {
-                        "evidence_id": row["evidence_id"],
-                        "thread_id": row["thread_id"],
-                        "shard_id": row["shard_id"],
-                        "subject": row["subject"] or "",
-                        "sent_at": row["sent_at"] or "",
-                        "match_score": score,
-                    }
-                )
-        scored.sort(key=lambda x: (int(x.get("match_score", 0)), str(x.get("sent_at") or "")), reverse=True)
-        return scored[:limit]
+        return result
     finally:
         conn.close()
 
@@ -329,47 +258,6 @@ def query_summary(user: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, An
     ok, reason = _ensure_mailbox(user, mailbox_id)
     if not ok:
         return {"answer_basis": "permission", "summary": "current user is not allowed to access this mailbox", "status": reason}
-    if query.strip():
-        rollup_threads = _thread_rows_from_rollup(mailbox_id, query, limit=10)
-        rollup_evidence = _evidence_rows_from_rollup(mailbox_id, query, limit=10)
-        if rollup_threads is not None or rollup_evidence is not None:
-            threads = rollup_threads or []
-            locators = [
-                {"evidence_id": item["evidence_id"], "thread_id": item["thread_id"], "shard_id": item["shard_id"]}
-                for item in (rollup_evidence or [])
-            ]
-            evidence = _read_sharded_evidence(mailbox_id, locators)[:10]
-            if not threads and not evidence:
-                return {
-                    "answer_basis": "server_index",
-                    "query": query,
-                    "status": "no_match",
-                    "summary": "No indexed thread or evidence matched the query. Do not infer an answer without evidence.",
-                    "threads": [],
-                    "evidence": [],
-                }
-            summary = f"Found {len(threads)} matching threads and {len(evidence)} evidence records for query: {query}"
-            rollup_data: Dict[str, Any] = {}
-            rollup_summary = _rollup_summary_path(mailbox_id)
-            if rollup_summary.exists():
-                try:
-                    rollup_data = _load_json(rollup_summary)
-                except Exception:
-                    rollup_data = {}
-            return {
-                "answer_basis": "server_index",
-                "query": query,
-                "status": "matched",
-                "summary": summary,
-                "mailbox_id": mailbox_id,
-                "message_count": rollup_data.get("message_count"),
-                "thread_count": rollup_data.get("thread_count"),
-                "shard_count": rollup_data.get("shard_count"),
-                "indexed_at": rollup_data.get("indexed_at"),
-                "indexer_version": rollup_data.get("indexer_version"),
-                "threads": threads,
-                "evidence": evidence,
-            }
     rollup_summary = _rollup_summary_path(mailbox_id)
     if rollup_summary.exists():
         data = _load_json(rollup_summary)
@@ -478,17 +366,17 @@ def rebuild_index(user: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, An
 MCP_TOOLS = [
     {
         "name": "list_mailboxes",
-        "description": "Return mailboxes authorized for the current agent user.",
+        "description": "Enterprise mail-index only. Return authorized mailbox_id values such as caigou/hqsc_gd3 or yingxiao/xxx. Use this instead of Gmail for company mailbox paths, project mail, approval, quotation, sample, customer, supplier, order, attachment, evidence, and thread questions.",
         "inputSchema": {"type": "object", "properties": {}},
     },
     {
         "name": "get_index_status",
-        "description": "Return server-side index status for an authorized mailbox.",
+        "description": "Enterprise mail-index only. Return server-side index status for an authorized mailbox_id such as caigou/hqsc_gd3. Do not use Gmail for these mailbox_id paths.",
         "inputSchema": {"type": "object", "properties": {"mailbox_id": {"type": "string"}}, "required": ["mailbox_id"]},
     },
     {
         "name": "query_summary",
-        "description": "Query project, customer, people, risk, progress, payment, approval, and other summaries from the server index.",
+        "description": "Enterprise mail-index only. Query project, customer, people, owner, risk, progress, payment, approval, quotation, sample, order, attachment, and evidence summaries from the server index. Use for caigou/... and yingxiao/... mailbox_id queries; do not use Gmail.",
         "inputSchema": {
             "type": "object",
             "properties": {"mailbox_id": {"type": "string"}, "query": {"type": "string"}, "filters": {"type": "object"}},
@@ -497,7 +385,16 @@ MCP_TOOLS = [
     },
     {
         "name": "search_threads",
-        "description": "Search authorized mailbox thread indexes.",
+        "description": "Enterprise mail-index only. Search authorized company mailbox thread indexes by mailbox_id and query. Use for caigou/... and yingxiao/... paths; do not use Gmail labels.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {"mailbox_id": {"type": "string"}, "query": {"type": "string"}, "filters": {"type": "object"}},
+            "required": ["mailbox_id", "query"],
+        },
+    },
+    {
+        "name": "smart_search",
+        "description": "Enterprise mail-index only. One-step search for user questions like '查一下 caigou/hqsc_gd3 里和审批/报价/样品有关的邮件'. Requires mailbox_id and query; never use Gmail labels.",
         "inputSchema": {
             "type": "object",
             "properties": {"mailbox_id": {"type": "string"}, "query": {"type": "string"}, "filters": {"type": "object"}},
@@ -506,7 +403,7 @@ MCP_TOOLS = [
     },
     {
         "name": "get_evidence",
-        "description": "Return original evidence by evidence_id or thread_id within an authorized mailbox.",
+        "description": "Enterprise mail-index only. Return original indexed evidence by evidence_id or thread_id within an authorized company mailbox_id. Do not use Gmail.",
         "inputSchema": {
             "type": "object",
             "properties": {"mailbox_id": {"type": "string"}, "evidence_id": {"type": "string"}, "thread_id": {"type": "string"}},
@@ -515,7 +412,7 @@ MCP_TOOLS = [
     },
     {
         "name": "rebuild_index",
-        "description": "Request server-side index rebuild for an authorized mailbox when explicitly allowed.",
+        "description": "Enterprise mail-index only. Request server-side index rebuild for an authorized mailbox_id when explicitly allowed. Do not use Gmail.",
         "inputSchema": {
             "type": "object",
             "properties": {"mailbox_id": {"type": "string"}, "reason": {"type": "string"}},
@@ -612,6 +509,7 @@ TOOLS = {
     "get_index_status": get_index_status,
     "query_summary": query_summary,
     "search_threads": search_threads,
+    "smart_search": search_threads,
     "get_evidence": get_evidence,
     "rebuild_index": rebuild_index,
 }
@@ -683,8 +581,6 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-
 
 
 
