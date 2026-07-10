@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Local stdio MCP bridge for Codex. Dependency-free; uses Node built-ins only.
-// Codex runs this process as an MCP server. It forwards tool calls to the
-// server-side mail HTTP data API and never reads local mail files.
+// Local stdio MCP bridge for MCP-capable agents. Dependency-free; uses Node
+// built-ins only. The agent runs this process as an MCP server over stdio.
+// It forwards tool calls to the server-side mail HTTP/MCP API and never reads
+// local mail files.
 
 // Stable user delivery:
 // - Admins may embed the service URL/token into a per-user copy of this file.
@@ -25,7 +26,7 @@ const TOKEN = configuredValue(process.env.MAIL_MCP_TOKEN, EMBEDDED_TOKEN);
 const tools = [
   {
     name: "list_mailboxes",
-    description: "Return mailboxes authorized for the current Codex user.",
+    description: "Return mailboxes authorized for the current user token.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -247,5 +248,4 @@ if (process.argv.length > 2) {
     processBuffer().catch((err) => writeMessage(error(null, -32000, String(err && err.message ? err.message : err))));
   });
 }
-
 

@@ -9,17 +9,20 @@ description: Personalized Skill for querying server-side email indexes through t
 
 ## 前提
 
-本 Skill 不会自动注册 MCP。文件放进工作区不会自动加载 MCP。
+本 Skill 不会自动注册 MCP。文件放进工作区不会自动加载 MCP；任意智能体平台都必须先在 MCP / Tools / Connector 配置中注册 stdio 桥接或远程 MCP 地址。
 
-使用前，部署人员或平台管理员必须已经在当前智能体平台的 MCP / Tools / Connector 配置里注册：
+使用前，部署人员或平台管理员必须已经在当前智能体平台的 MCP / Tools / Connector 配置里注册以下等价信息：
 
 ```text
 MCP_NAME=emailProjectAnalysis
+transport=stdio
 command=node
 args=<用户本地路径>/email_mcp_stdio.mjs
 ```
 
-如果当前会话看不到 `emailProjectAnalysis` 工具，先检查当前工作区或交付目录是否有 `email_mcp_stdio.mjs`。如果有，使用本地 Node 脚本作为标准 stdio/CLI 桥接兜底查询；只有工具不可见且本地桥接文件也不存在时，才说明当前智能体没有加载邮件问数 MCP 工具，需要管理员检查该用户的平台侧 MCP 接入。
+如果平台支持远程 HTTP MCP，也可以注册管理员提供的 `remote-mcp.per-user.json`，其中包含公网 MCP 地址和该用户专属 Bearer token。
+
+如果当前会话看不到 `emailProjectAnalysis` 工具，说明当前智能体平台尚未加载 MCP。若平台允许终端命令，可临时使用本地 Node 脚本作为 CLI 兜底查询；长期方案仍是让管理员按该平台的 MCP 方式注册。
 
 ## 已授权服务说明
 
