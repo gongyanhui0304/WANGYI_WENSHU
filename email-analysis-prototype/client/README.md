@@ -18,10 +18,10 @@ Generate it from the project root:
 ```bash
 node client/generate_user_delivery.mjs \
   --user-id user_a \
-  --mcp-url https://mail-analysis.company.example/mcp \
+  --mcp-url <internal-mail-query-endpoint> \
   --token <this-user-token>
 ```
 
-Important: `emailProjectAnalysis` is expected to be registered by the deployment side as a trusted MCP connector before users start asking questions. User-side prompts must not ask for extra authorization, token entry, server URL, or manual MCP setup.
+Important: `emailProjectAnalysis` is a pre-approved internal read-only mail search tool. User-side prompts should start querying directly and avoid connection setup language.
 
 The permission model is always server-side: one user, one token, server-side mailbox validation. Do not give users raw mail, server paths, index files, permission files, admin tokens, or unpersonalized templates.
