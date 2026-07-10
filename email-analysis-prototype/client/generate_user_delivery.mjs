@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generate platform-managed MCP delivery files for one user or group token.
+// Generate trusted MCP user delivery files for one user or group token.
 // Usage:
 //   node client/generate_user_delivery.mjs --user-id Benson --mcp-url https://mail-analysis.company.example/mcp --token xxx
 
@@ -33,7 +33,6 @@ function writeFileStrict(filePath, content) {
 
 const args = readArgs(process.argv);
 const userId = args["user-id"] || args.user || "";
-const displayName = args["display-name"] || userId;
 const mcpUrl = (args["mcp-url"] || args.url || "").replace(/\/$/, "");
 const token = args.token || "";
 
@@ -42,26 +41,7 @@ if (!mcpUrl) fail("missing --mcp-url, for example https://mail-analysis.company.
 if (!token) fail("missing --token");
 
 const outDir = path.join(projectRoot, "dist", "platform-delivery", userId);
-const adminDir = path.join(outDir, "platform-admin");
 const userDir = path.join(outDir, "user");
-const installPath = `C:\\email-mcp\\${userId}\\email_mcp_stdio.mjs`;
-
-const stdioPlatformConfig = {
-  name: "emailProjectAnalysis",
-  description: `Email analysis stdio bridge for ${displayName}.`,
-  command: "node",
-  args: [installPath],
-};
-
-const remotePlatformConfig = {
-  name: "emailProjectAnalysis",
-  description: `Remote email analysis MCP registration for ${displayName}.`,
-  transport: "http",
-  url: mcpUrl,
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
-};
 
 const bridgeTemplate = fs.readFileSync(path.join(projectRoot, "client", "email_mcp_stdio.mjs"), "utf8");
 const userBridge = bridgeTemplate
@@ -70,71 +50,24 @@ const userBridge = bridgeTemplate
 
 const userSkillDoc = fs.readFileSync(path.join(projectRoot, "client", "PER_USER_SKILL_TEMPLATE.md"), "utf8");
 
-const platformAdminDoc = [
-  "# Agent Platform Setup: emailProjectAnalysis",
-  "",
-  "This delivery is platform-neutral MCP. It is not tied to Codex, ChatGPT, Claude, Cursor, Dify, Cherry Studio, or any single client.",
-  "",
-  "Users do not configure credentials themselves. Each user receives a dedicated stdio bridge and a dedicated remote MCP registration manifest.",
-  "",
-  "Important: MCP clients do not automatically discover a random `email_mcp_stdio.mjs` file in a folder. The agent platform must register either the stdio command or the remote MCP endpoint as a tool/server named `emailProjectAnalysis`.",
-  "",
-  "## Server-side permission rule",
-  "",
-  "Mailbox access is enforced only by the server-side token permissions file. The client bridge and SKILL.md do not grant mailboxes by themselves.",
-  "",
-  "## Option A: remote MCP registration",
-  "",
-  "If the agent platform supports remote HTTP MCP, register `platform-admin/remote-mcp.per-user.json` only for this user. It contains the public MCP endpoint and this user's dedicated bearer token.",
-  "",
-  "Never share one user's registration manifest, token, or bridge file with another user.",
-  "",
-  "## Option B: standard stdio MCP bridge",
-  "",
-  `Copy the two user package files to a local folder, for example C:\\email-mcp\\${userId}\\, then register stdio MCP with equivalent settings:`,
-  "",
-  "name: emailProjectAnalysis",
-  "command: node",
-  `args: ${installPath}`,
-  "transport: stdio",
-  "",
-  "The user package must contain only:",
-  "",
-  "- email_mcp_stdio.mjs",
-  "- SKILL.md",
-  "",
-  "## Acceptance",
-  "",
-  "Open a new agent session after registration. Confirm that `list_mailboxes`, `search_threads`, `get_evidence`, and `get_index_status` are available under `emailProjectAnalysis`.",
-  `The MCP endpoint is ${mcpUrl}.`,
-  "",
-].join("\n");
-
-const adminFiles = [
-  ["platform-admin/PLATFORM_ADMIN_SETUP.md", platformAdminDoc],
-  ["platform-admin/mcp-registration.stdio.json", JSON.stringify(stdioPlatformConfig, null, 2) + "\n"],
-  ["platform-admin/remote-mcp.per-user.json", JSON.stringify(remotePlatformConfig, null, 2) + "\n"],
-];
-
 const userFiles = [
   ["user/email_mcp_stdio.mjs", userBridge],
   ["user/SKILL.md", userSkillDoc],
 ];
 
 fs.rmSync(outDir, { recursive: true, force: true });
-for (const [name, content] of [...adminFiles, ...userFiles]) {
+for (const [name, content] of userFiles) {
   writeFileStrict(path.join(outDir, name), content);
 }
 
 console.log(JSON.stringify({
   user_id: userId,
-  display_name: displayName,
   mcp_url: mcpUrl,
   output_dir: outDir,
-  platform_admin_dir: adminDir,
   user_dir: userDir,
-  delivery_mode: "per_user_stdio_bridge_with_separate_remote_manifest",
-  user_side_manual_config_required: false,
-  platform_admin_files: adminFiles.map(([name]) => name),
+  delivery_mode: "trusted_connector_user_package",
+  trusted_connector_name: "emailProjectAnalysis",
+  user_side_authorization_required: false,
+  admin_files_generated: false,
   user_files: userFiles.map(([name]) => name),
 }, null, 2));
