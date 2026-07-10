@@ -15,6 +15,7 @@ from pathlib import Path
 from socketserver import ThreadingMixIn
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
+import re
 
 
 def required_env(name: str) -> str:
@@ -124,6 +125,30 @@ def _load_json(path: Path) -> Dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _query_terms(query: str) -> List[str]:
+    query = query.lower().strip()
+    if not query:
+        return []
+    parts = re.split(r"[\s,;；、，。:：()（）\[\]{}<>《》\"'`]+", query)
+    terms = []
+    for part in parts:
+        part = part.strip()
+        if len(part) >= 2 and part not in terms:
+            terms.append(part)
+    if query and query not in terms and len(query) <= 80:
+        terms.append(query)
+    return terms[:12]
+
+
+def _score_text(text: str, terms: List[str]) -> int:
+    lowered = text.lower()
+    score = 0
+    for term in terms:
+        if term in lowered:
+            score += 10 + min(lowered.count(term), 5)
+    return score
+
+
 def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Optional[List[Dict[str, Any]]]:
     db = _thread_index_path(mailbox_id)
     if not db.exists():
@@ -131,11 +156,13 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     try:
-        lowered = query.lower().strip()
-        if lowered:
+        terms = _query_terms(query)
+        if terms:
+            clauses = " or ".join(["search_text like ?"] * len(terms))
+            params: List[Any] = [mailbox_id] + [f"%{term}%" for term in terms] + [max(limit * 10, 100)]
             rows = conn.execute(
-                "select * from threads where mailbox_id = ? and search_text like ? order by last_updated_at desc limit ?",
-                (mailbox_id, f"%{lowered}%", limit),
+                f"select * from threads where mailbox_id = ? and ({clauses}) order by last_updated_at desc limit ?",
+                params,
             ).fetchall()
         else:
             rows = conn.execute(
@@ -144,7 +171,11 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
             ).fetchall()
         result = []
         for row in rows:
-            result.append(
+            search_text = row["search_text"] or ""
+            score = _score_text(search_text, terms) if terms else 0
+            if terms and score <= 0:
+                continue
+            item = (
                 {
                     "thread_id": row["thread_id"],
                     "subject": row["subject"] or "",
@@ -155,9 +186,49 @@ def _thread_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Op
                     "message_count": row["message_count"],
                     "evidence_ids": json.loads(row["evidence_ids_json"] or "[]"),
                     "summary": row["summary"] or "",
+                    "match_score": score,
                 }
             )
-        return result
+            result.append(item)
+        if terms:
+            result.sort(key=lambda x: (int(x.get("match_score", 0)), str(x.get("last_updated_at") or "")), reverse=True)
+        return result[:limit]
+    finally:
+        conn.close()
+
+
+def _evidence_rows_from_rollup(mailbox_id: str, query: str, limit: int = 20) -> Optional[List[Dict[str, str]]]:
+    db = _thread_index_path(mailbox_id)
+    if not db.exists():
+        return None
+    terms = _query_terms(query)
+    if not terms:
+        return []
+    conn = sqlite3.connect(str(db))
+    conn.row_factory = sqlite3.Row
+    try:
+        clauses = " or ".join(["search_text like ?"] * len(terms))
+        params: List[Any] = [mailbox_id] + [f"%{term}%" for term in terms] + [max(limit * 10, 100)]
+        rows = conn.execute(
+            f"select evidence_id, thread_id, shard_id, subject, sent_at, search_text from evidence_locator where mailbox_id = ? and ({clauses}) order by sent_at desc limit ?",
+            params,
+        ).fetchall()
+        scored = []
+        for row in rows:
+            score = _score_text(row["search_text"] or "", terms)
+            if score > 0:
+                scored.append(
+                    {
+                        "evidence_id": row["evidence_id"],
+                        "thread_id": row["thread_id"],
+                        "shard_id": row["shard_id"],
+                        "subject": row["subject"] or "",
+                        "sent_at": row["sent_at"] or "",
+                        "match_score": score,
+                    }
+                )
+        scored.sort(key=lambda x: (int(x.get("match_score", 0)), str(x.get("sent_at") or "")), reverse=True)
+        return scored[:limit]
     finally:
         conn.close()
 
@@ -258,6 +329,47 @@ def query_summary(user: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, An
     ok, reason = _ensure_mailbox(user, mailbox_id)
     if not ok:
         return {"answer_basis": "permission", "summary": "current user is not allowed to access this mailbox", "status": reason}
+    if query.strip():
+        rollup_threads = _thread_rows_from_rollup(mailbox_id, query, limit=10)
+        rollup_evidence = _evidence_rows_from_rollup(mailbox_id, query, limit=10)
+        if rollup_threads is not None or rollup_evidence is not None:
+            threads = rollup_threads or []
+            locators = [
+                {"evidence_id": item["evidence_id"], "thread_id": item["thread_id"], "shard_id": item["shard_id"]}
+                for item in (rollup_evidence or [])
+            ]
+            evidence = _read_sharded_evidence(mailbox_id, locators)[:10]
+            if not threads and not evidence:
+                return {
+                    "answer_basis": "server_index",
+                    "query": query,
+                    "status": "no_match",
+                    "summary": "No indexed thread or evidence matched the query. Do not infer an answer without evidence.",
+                    "threads": [],
+                    "evidence": [],
+                }
+            summary = f"Found {len(threads)} matching threads and {len(evidence)} evidence records for query: {query}"
+            rollup_data: Dict[str, Any] = {}
+            rollup_summary = _rollup_summary_path(mailbox_id)
+            if rollup_summary.exists():
+                try:
+                    rollup_data = _load_json(rollup_summary)
+                except Exception:
+                    rollup_data = {}
+            return {
+                "answer_basis": "server_index",
+                "query": query,
+                "status": "matched",
+                "summary": summary,
+                "mailbox_id": mailbox_id,
+                "message_count": rollup_data.get("message_count"),
+                "thread_count": rollup_data.get("thread_count"),
+                "shard_count": rollup_data.get("shard_count"),
+                "indexed_at": rollup_data.get("indexed_at"),
+                "indexer_version": rollup_data.get("indexer_version"),
+                "threads": threads,
+                "evidence": evidence,
+            }
     rollup_summary = _rollup_summary_path(mailbox_id)
     if rollup_summary.exists():
         data = _load_json(rollup_summary)

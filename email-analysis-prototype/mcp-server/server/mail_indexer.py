@@ -16,11 +16,14 @@ import hashlib
 import html
 import json
 import os
+import shutil
 import sqlite3
+import subprocess
 import uuid
 import re
 import time
 import zipfile
+import zlib
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
@@ -54,12 +57,13 @@ EXTRA_BUSINESS_KEYWORDS = [
 BUSINESS_KEYWORDS = list(dict.fromkeys(DEFAULT_BUSINESS_KEYWORDS + EXTRA_BUSINESS_KEYWORDS))
 
 BINARY_SUFFIXES = {
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".pdf", ".zip", ".rar", ".7z", ".gz",
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".zip", ".rar", ".7z", ".gz",
     ".xlsx", ".xls", ".doc", ".pptx", ".ppt", ".exe", ".bin", ".db", ".sqlite",
 }
+PDF_SUFFIXES = {".pdf"}
 TEXT_SUFFIXES = {".txt", ".html", ".htm", ".eml", ".ics", ".csv", ".json", ""}
 DOCX_SUFFIXES = {".docx"}
-ATTACHMENT_SUFFIXES = BINARY_SUFFIXES | DOCX_SUFFIXES
+ATTACHMENT_SUFFIXES = BINARY_SUFFIXES | DOCX_SUFFIXES | PDF_SUFFIXES
 ARCHIVE_SUFFIXES = {".zip", ".rar", ".7z", ".gz"}
 
 HEADER_PATTERNS = {
@@ -109,6 +113,131 @@ def clean_text(text: str) -> str:
     text = re.sub(r"[ \t\r\f\v]+", " ", text)
     text = re.sub(r"\n\s*\n+", "\n", text)
     return text.strip()
+
+
+def _clean_pdf_text(text: str) -> str:
+    text = text.replace("\x00", " ")
+    text = re.sub(r"[ \t\r\f\v]+", " ", text)
+    text = re.sub(r"\n\s*\n+", "\n", text)
+    return text.strip()
+
+
+def _read_pdf_with_python_lib(path: Path) -> str:
+    try:
+        from pypdf import PdfReader  # type: ignore
+    except Exception:
+        try:
+            from PyPDF2 import PdfReader  # type: ignore
+        except Exception:
+            return ""
+    try:
+        reader = PdfReader(str(path))
+        parts = []
+        for page in reader.pages[:50]:
+            try:
+                parts.append(page.extract_text() or "")
+            except Exception:
+                continue
+        return _clean_pdf_text("\n".join(parts))
+    except Exception:
+        return ""
+
+
+def _read_pdf_with_pdftotext(path: Path) -> str:
+    exe = shutil.which("pdftotext")
+    if not exe:
+        return ""
+    try:
+        proc = subprocess.run(
+            [exe, "-layout", "-enc", "UTF-8", str(path), "-"],
+            check=False,
+            capture_output=True,
+            timeout=20,
+        )
+    except Exception:
+        return ""
+    if proc.returncode != 0 or not proc.stdout:
+        return ""
+    return _clean_pdf_text(proc.stdout.decode("utf-8", errors="replace"))
+
+
+def _pdf_literal_to_text(value: bytes) -> str:
+    value = re.sub(rb"\\[0-7]{1,3}", b" ", value)
+    replacements = {
+        rb"\n": b"\n",
+        rb"\r": b"\n",
+        rb"\t": b"\t",
+        rb"\(": b"(",
+        rb"\)": b")",
+        rb"\\": b"\\",
+    }
+    for old, new in replacements.items():
+        value = value.replace(old, new)
+    for encoding in ("utf-8", "utf-16-be", "gb18030", "latin-1"):
+        try:
+            return value.decode(encoding, errors="ignore")
+        except Exception:
+            continue
+    return ""
+
+
+def _read_pdf_fallback(path: Path) -> str:
+    try:
+        data = path.read_bytes()[: MAX_READ_BYTES * 4]
+    except Exception:
+        return ""
+    chunks = [data]
+    for match in re.finditer(rb"stream\r?\n(.*?)\r?\nendstream", data, flags=re.DOTALL):
+        raw = match.group(1).strip(b"\r\n")
+        try:
+            chunks.append(zlib.decompress(raw))
+        except Exception:
+            continue
+    texts: List[str] = []
+    for chunk in chunks:
+        for match in re.finditer(rb"\((?:\\.|[^\\)]){2,}\)", chunk):
+            texts.append(_pdf_literal_to_text(match.group(0)[1:-1]))
+        for match in re.finditer(rb"<([0-9A-Fa-f]{4,})>", chunk):
+            try:
+                texts.append(bytes.fromhex(match.group(1).decode("ascii")).decode("utf-16-be", errors="ignore"))
+            except Exception:
+                continue
+    return _clean_pdf_text("\n".join(t for t in texts if t))
+
+
+def read_pdf_text(path: Path) -> str:
+    """Best-effort PDF text extraction for searchable attachment evidence.
+
+    Uses optional installed extractors when available and falls back to a small
+    built-in parser. Scanned/image-only PDFs will still produce no text.
+    """
+    for reader in (_read_pdf_with_python_lib, _read_pdf_with_pdftotext, _read_pdf_fallback):
+        text = reader(path)
+        if len(text) >= 20:
+            return text[:MAX_EXCERPT_CHARS]
+    return ""
+
+
+def pdf_attachment_meta(path: Path, rel: str) -> Dict[str, Any]:
+    text = read_pdf_text(path)
+    body = f"PDF attachment: {path.name}"
+    if text:
+        body += "\n" + text
+    else:
+        body += "\n[PDF text extraction unavailable or image-only PDF]"
+    return {
+        "relative_path": rel,
+        "raw_path": str(path),
+        "file_mtime": path.stat().st_mtime,
+        "subject": "",
+        "sender": "",
+        "recipients": "",
+        "cc": "",
+        "sent_at": "",
+        "body": body,
+        "source_type": "pdf_attachment",
+        "attachment_text_extracted": bool(text),
+    }
 
 
 
@@ -547,6 +676,14 @@ def add_file_v4(mailbox_root: Path, path: Path, groups: Dict[str, Dict[str, Any]
             group["files"].append(rel); group["texts"].append(meta.get("body", "")); group["metas"].append(meta)
             return 0
         group["attachments"].append(path.name)
+        return 1
+    if suffix in PDF_SUFFIXES:
+        group["attachments"].append(path.name)
+        meta = pdf_attachment_meta(path, rel)
+        if meta.get("attachment_text_extracted"):
+            group["texts"].append(meta.get("body", ""))
+            group["metas"].append(meta)
+            return 0
         return 1
     if "attachments" in path.relative_to(mailbox_root).parts or suffix in ATTACHMENT_SUFFIXES:
         group["attachments"].append(path.name)

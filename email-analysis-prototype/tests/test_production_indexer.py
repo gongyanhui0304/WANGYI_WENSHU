@@ -52,6 +52,16 @@ def write_ics(path: Path, summary: str, description: str) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def write_pdf_like(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        b"%PDF-1.4\n"
+        b"1 0 obj << /Type /Page /Contents 2 0 R >> endobj\n"
+        + f"2 0 obj << /Length {len(text) + 10} >> stream\nBT ({text}) Tj ET\nendstream endobj\n".encode("utf-8")
+        + b"%%EOF\n"
+    )
 def load_api_module(env: dict[str, str]):
     old_env = os.environ.copy()
     os.environ.update(env)
@@ -242,6 +252,50 @@ class ProductionIndexerTest(unittest.TestCase):
         self.assertEqual(evidence["evidence"][0]["evidence_id"], evidence_id)
         self.assertIn("payment approval", evidence["evidence"][0]["excerpt"])
         self.assertNotIn("raw_path", evidence["evidence"][0])
+
+    def test_query_summary_returns_no_match_instead_of_global_summary(self) -> None:
+        rel = "2026/07/streamview/message.eml"
+        write_eml(
+            self.raw_root / self.mailbox / rel,
+            "StreamView API lookup",
+            "StreamView risk review and payment approval are both visible.",
+        )
+        result = self.run_indexer("--changed-list", str(self.changed_list(rel)), self.mailbox)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
+        api = load_api_module(self.env)
+        user = {"allowed_mailboxes": [self.mailbox], "permissions": ["read_evidence"]}
+
+        summary = api.query_summary(user, {"mailbox_id": self.mailbox, "query": "NonexistentPartNumber999"})
+        self.assertEqual(summary["status"], "no_match")
+        self.assertEqual(summary["threads"], [])
+        self.assertEqual(summary["evidence"], [])
+        self.assertIn("Do not infer", summary["summary"])
+
+    def test_pdf_attachment_text_is_indexed_as_searchable_evidence(self) -> None:
+        rel_mail = "2026/07/approval/message.eml"
+        rel_pdf = "2026/07/approval/attachments/approval-letter.pdf"
+        write_eml(
+            self.raw_root / self.mailbox / rel_mail,
+            "Approval letter forwarding",
+            "Please check the attached approval letter.",
+        )
+        write_pdf_like(
+            self.raw_root / self.mailbox / rel_pdf,
+            "55KA1H 2X15Light Bar Approval Letter confirmed by Shenzhen supplier.",
+        )
+
+        result = self.run_indexer("--changed-list", str(self.changed_list(rel_mail, rel_pdf)), self.mailbox)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
+        api = load_api_module(self.env)
+        user = {"allowed_mailboxes": [self.mailbox], "permissions": ["read_evidence"]}
+        summary = api.query_summary(user, {"mailbox_id": self.mailbox, "query": "55KA1H Approval Letter"})
+
+        self.assertEqual(summary["status"], "matched")
+        self.assertGreaterEqual(len(summary["evidence"]), 1)
+        self.assertIn("55KA1H", summary["evidence"][0]["excerpt"])
+        self.assertIn("approval-letter.pdf", summary["evidence"][0]["attachments"])
 
 
 if __name__ == "__main__":
